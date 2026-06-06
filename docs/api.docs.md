@@ -15,24 +15,40 @@ Creates a new user record, hashes credentials, and logs the user in (issues acce
   {
     "email": "john.doe@example.com",
     "password": "securepassword123",
-    "name": "John Doe"
+    "firstName": "John",
+    "lastName": "Doe",
+    "role": "OFFICER",
+    "phone": "+1234567890",
+    "country": "Belgium",
+    "profilePhoto": "data:image/png;base64,iVBORw0KGgoAAA..."
   }
   ```
 * **Validation Rules**:
   - `email`: Required, valid email format, trimmed and lowercased.
   - `password`: Required, minimum length 6 characters.
-  - `name`: Required, minimum length 1, trimmed.
+  - `firstName`: Required, minimum length 1, trimmed.
+  - `lastName`: Required, minimum length 1, trimmed.
+  - `role`: Optional (defaults to `OFFICER`), enum values: `ADMIN`, `MANAGER`, `OFFICER`, `VENDOR`.
+  - `phone`: Optional string.
+  - `country`: Optional string.
+  - `profilePhoto`: Optional base64 or file URL string.
 * **Success Response (201 Created)**:
   ```json
   {
     "success": true,
-    "user": {
-      "id": 1,
-      "email": "john.doe@example.com",
-      "name": "John Doe"
-    },
-    "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MS...",
-    "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MS..."
+    "data": {
+      "user": {
+        "id": 1,
+        "email": "john.doe@example.com",
+        "firstName": "John",
+        "lastName": "Doe",
+        "role": "OFFICER",
+        "phone": "+1234567890",
+        "country": "Belgium"
+      },
+      "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MS...",
+      "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MS..."
+    }
   }
   ```
 * **Validation Failure Response (400 Bad Request)**:
@@ -65,13 +81,19 @@ Verifies user credentials and issues session tokens.
   ```json
   {
     "success": true,
-    "user": {
-      "id": 1,
-      "email": "john.doe@example.com",
-      "name": "John Doe"
-    },
-    "accessToken": "eyJhbGci...",
-    "refreshToken": "eyJhbG..."
+    "data": {
+      "user": {
+        "id": 1,
+        "email": "john.doe@example.com",
+        "firstName": "John",
+        "lastName": "Doe",
+        "role": "OFFICER",
+        "phone": "+1234567890",
+        "country": "Belgium"
+      },
+      "accessToken": "eyJhbG...",
+      "refreshToken": "eyJhbG..."
+    }
   }
   ```
 * **Failure Response (401 Unauthorized)**:
@@ -98,7 +120,9 @@ Exchanges a valid refresh token for a new short-lived access token.
   ```json
   {
     "success": true,
-    "accessToken": "eyJhbGciOiJIUzI1Ni..."
+    "data": {
+      "accessToken": "eyJhbGciOiJIUzI1Ni..."
+    }
   }
   ```
 * **Failure Response (403 Forbidden)**:
@@ -125,7 +149,9 @@ Deletes/revokes the refresh token from the database, ending the user session.
   ```json
   {
     "success": true,
-    "message": "Successfully logged out."
+    "data": {
+      "message": "Successfully logged out."
+    }
   }
   ```
 

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { Role } from '@prisma/client';
 
 export const registerSchema = z.object({
   email: z
@@ -10,10 +11,23 @@ export const registerSchema = z.object({
   password: z
     .string()
     .min(6, 'Password must be at least 6 characters long'),
-  name: z
+  firstName: z
     .string()
-    .min(1, 'Name cannot be empty')
-    .trim()
+    .min(1, 'First name cannot be empty')
+    .trim(),
+  lastName: z
+    .string()
+    .min(1, 'Last name cannot be empty')
+    .trim(),
+  role: z
+    .nativeEnum(Role, { errorMap: () => ({ message: 'Invalid user role' }) })
+    .default(Role.OFFICER),
+  phone: z
+    .string()
+    .optional(),
+  country: z
+    .string()
+    .optional()
 });
 
 export const loginSchema = z.object({
@@ -30,3 +44,4 @@ export const loginSchema = z.object({
 
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
+

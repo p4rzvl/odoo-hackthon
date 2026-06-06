@@ -11,14 +11,82 @@ datasource db {
   provider = "postgresql"
 }
 
+enum Role {
+  ADMIN
+  MANAGER
+  OFFICER
+  VENDOR
+}
+
+enum VendorStatus {
+  PENDING
+  ACTIVE
+  BLOCKED
+}
+
+enum RfqStatus {
+  DRAFT
+  PUBLISHED
+  CLOSED
+}
+
+enum QuotationStatus {
+  DRAFT
+  SUBMITTED
+  SELECTED
+  REJECTED
+}
+
+enum ApprovalStatus {
+  WAITING
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum PoStatus {
+  DRAFT
+  APPROVED
+  FULFILLED
+}
+
+enum InvoiceStatus {
+  PENDING_PAYMENT
+  PAID
+  OVERDUE
+}
+
+enum LogActionType {
+  USER
+  VENDOR
+  RFQ
+  QUOTATION
+  APPROVAL
+  PO
+  INVOICE
+  SYSTEM
+}
+
 model User {
   id           Int            @id @default(autoincrement())
   email        String         @unique
   passwordHash String
-  name         String
+  firstName    String
+  lastName     String
+  role         Role           @default(OFFICER)
+  phone        String?
+  country      String?
+  profilePhoto String?
+  isActive     Boolean        @default(true)
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
+  
   refreshTokens RefreshToken[]
+  vendors       Vendor[]
+  rfqsCreated   Rfq[]          @relation("RfqCreatedBy")
+  approvals     Approval[]
+  activityLogs  ActivityLog[]
+  notifications Notification[]
 }
 
 model RefreshToken {
@@ -29,4 +97,187 @@ model RefreshToken {
   expiresAt DateTime
   revoked   Boolean  @default(false)
   createdAt DateTime @default(now())
+}
+
+model Vendor {
+  id            Int          @id @default(autoincrement())
+  userId        Int          @unique
+  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  companyName   String
+  gstNumber     String       @unique
+  category      String
+  contactNumber String
+  address       String
+  status        VendorStatus @default(PENDING)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  rfqVendors    RfqVendor[]
+  quotations    Quotation[]
+  purchaseOrders PurchaseOrder[]
+
+  @@index([status])
+}
+
+model Rfq {
+  id          Int       @id @default(autoincrement())
+  title       String
+  category    String
+  description String
+  deadline    DateTime
+  status      RfqStatus @default(DRAFT)
+  createdBy   Int
+  creator     User      @relation("RfqCreatedBy", fields: [createdBy], references: [id])
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  lineItems   RfqLineItem[]
+  rfqVendors  RfqVendor[]
+  attachments RfqAttachment[]
+  quotations  Quotation[]
+
+  @@index([status])
+}
+
+model RfqLineItem {
+  id             Int             @id @default(autoincrement())
+  rfqId          Int
+  rfq            Rfq             @relation(fields: [rfqId], references: [id], onDelete: Cascade)
+  itemName       String
+  quantity       Int
+  unit           String
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  quotationItems QuotationItem[]
+}
+
+model RfqVendor {
+  id        Int      @id @default(autoincrement())
+  rfqId     Int
+  rfq       Rfq      @relation(fields: [rfqId], references: [id], onDelete: Cascade)
+  vendorId  Int
+  vendor    Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  invitedAt DateTime @default(now())
+
+  @@unique([rfqId, vendorId])
+}
+
+model RfqAttachment {
+  id         Int      @id @default(autoincrement())
+  rfqId      Int
+  rfq        Rfq      @relation(fields: [rfqId], references: [id], onDelete: Cascade)
+  fileName   String
+  filePath   String
+  uploadedAt DateTime @default(now())
+}
+
+model Quotation {
+  id           Int             @id @default(autoincrement())
+  rfqId        Int
+  rfq          Rfq             @relation(fields: [rfqId], references: [id], onDelete: Cascade)
+  vendorId     Int
+  vendor       Vendor          @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  gstPercent   Decimal         @db.Decimal(5, 2)
+  subtotal     Decimal         @db.Decimal(12, 2)
+  taxAmount    Decimal         @db.Decimal(12, 2)
+  grandTotal   Decimal         @db.Decimal(12, 2)
+  status       QuotationStatus @default(DRAFT)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  items        QuotationItem[]
+  approvals    Approval[]
+  purchaseOrders PurchaseOrder[]
+
+  @@index([status])
+}
+
+model QuotationItem {
+  id              Int         @id @default(autoincrement())
+  quotationId     Int
+  quotation       Quotation   @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  rfqLineItemId   Int
+  rfqLineItem     RfqLineItem @relation(fields: [rfqLineItemId], references: [id])
+  unitPrice       Decimal     @db.Decimal(12, 2)
+  totalPrice      Decimal     @db.Decimal(12, 2)
+  deliveryDays    Int
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+}
+
+model Approval {
+  id          Int            @id @default(autoincrement())
+  quotationId Int
+  quotation   Quotation      @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  approverId  Int
+  approver    User           @relation(fields: [approverId], references: [id])
+  level       Int            // 1 for L1, 2 for L2
+  status      ApprovalStatus @default(WAITING)
+  remarks     String?
+  assignedAt  DateTime       @default(now())
+  actionedAt  DateTime?
+
+  @@index([status])
+  @@index([level])
+}
+
+model PurchaseOrder {
+  id          Int      @id @default(autoincrement())
+  poNumber    String   @unique
+  quotationId Int
+  quotation   Quotation @relation(fields: [quotationId], references: [id])
+  vendorId    Int
+  vendor      Vendor   @relation(fields: [vendorId], references: [id])
+  totalAmount Decimal  @db.Decimal(12, 2)
+  status      PoStatus @default(DRAFT)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  invoices    Invoice[]
+
+  @@index([status])
+}
+
+model Invoice {
+  id            Int           @id @default(autoincrement())
+  invoiceNumber String        @unique
+  poId          Int
+  purchaseOrder PurchaseOrder @relation(fields: [poId], references: [id])
+  invoiceDate   DateTime
+  dueDate       DateTime
+  subtotal      Decimal       @db.Decimal(12, 2)
+  cgst          Decimal       @db.Decimal(12, 2)
+  sgst          Decimal       @db.Decimal(12, 2)
+  grandTotal    Decimal       @db.Decimal(12, 2)
+  status        InvoiceStatus @default(PENDING_PAYMENT)
+  pdfPath       String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@index([status])
+}
+
+model ActivityLog {
+  id          Int           @id @default(autoincrement())
+  actorId     Int?
+  actor       User?         @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  actionType  LogActionType
+  description String
+  entityId    Int?
+  entityType  String?
+  createdAt   DateTime      @default(now())
+}
+
+model Notification {
+  id              Int      @id @default(autoincrement())
+  userId          Int
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  message         String
+  type            String
+  isRead          Boolean  @default(false)
+  relatedEntityId Int?
+  entityType      String?
+  createdAt       DateTime @default(now())
+
+  @@index([userId, isRead])
 }

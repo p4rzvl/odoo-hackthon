@@ -1,13 +1,16 @@
 import { Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { AuthenticatedRequest } from '../types';
+import { sendError } from '../lib/response';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-key-for-development-change-in-production';
 
 interface DecodedToken {
   id: number;
   email: string;
-  name: string;
+  firstName: string;
+  lastName: string;
+  role: string;
 }
 
 export const authenticateToken = (req: AuthenticatedRequest, res: Response, next: NextFunction): void => {
@@ -15,11 +18,7 @@ export const authenticateToken = (req: AuthenticatedRequest, res: Response, next
   const token = authHeader && authHeader.split(' ')[1]; // "Bearer <token>"
 
   if (!token) {
-    res.status(401).json({
-      success: false,
-      error: 'Access token is missing or invalid. Please login.'
-    });
-    return;
+    return sendError(res, 'Access token is missing or invalid. Please login.', 401);
   }
 
   try {
@@ -27,13 +26,13 @@ export const authenticateToken = (req: AuthenticatedRequest, res: Response, next
     req.user = {
       id: decoded.id,
       email: decoded.email,
-      name: decoded.name
+      firstName: decoded.firstName,
+      lastName: decoded.lastName,
+      role: decoded.role
     };
     next();
   } catch (error) {
-    res.status(403).json({
-      success: false,
-      error: 'Token has expired or is invalid. Access denied.'
-    });
+    return sendError(res, 'Token has expired or is invalid. Access denied.', 403);
   }
 };
+
