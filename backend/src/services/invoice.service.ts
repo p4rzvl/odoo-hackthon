@@ -68,7 +68,7 @@ export const createInvoiceFromPo = async (userId: number, poId: number, invoiceD
   return invoice;
 };
 
-export const listInvoices = async (filters: { status?: string; page: number; limit: number }) => {
+export const listInvoices = async (filters: { status?: string; page: number; limit: number; vendorId?: number }) => {
   return invoiceRepository.listInvoices(filters);
 };
 
