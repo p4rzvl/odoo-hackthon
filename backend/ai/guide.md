@@ -109,7 +109,7 @@ await logActivity({
 - **Never expose** DB traces, stack traces, or raw Prisma errors to clients
 - **Parameterized queries only** — Prisma handles this automatically
 - **Passwords**: bcrypt with minimum 10 salt rounds
-- **File uploads**: type whitelist (PDF/JPG/PNG only), max 5MB, store in `/uploads/` outside web root
+- **File uploads**: Handled via `multer` storing files locally at `backend/uploads/rfqs/` (directory auto-created) and served statically under `/uploads`. Whitelist file extensions (PDF, PNG, JPG, XLSX) and limit sizes as needed.
 - **CORS**: Restrict to `FRONTEND_URL` from `.env`
 
 ---

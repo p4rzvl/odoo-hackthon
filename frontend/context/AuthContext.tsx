@@ -2,17 +2,15 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
-import { registerUser, loginUser, logoutUser, refreshSession, AuthResponse } from '../services/auth';
+import { registerUser, loginUser, logoutUser, refreshSession, getCurrentUser, AuthResponse, User } from '../services/auth';
 import { RegisterInput, LoginInput } from '../validations/auth.validation';
 
-interface User {
-  id: number;
-  email: string;
+interface ExtendedUser extends User {
   name: string;
 }
 
 interface AuthContextType {
-  user: User | null;
+  user: ExtendedUser | null;
   token: string | null;
   loading: boolean;
   login: (data: LoginInput) => Promise<AuthResponse>;
@@ -23,38 +21,44 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<ExtendedUser | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const router = useRouter();
 
-  // Load session from localStorage on mount
+  // Helper to map User with full name
+  const mapUser = (u: User): ExtendedUser => ({
+    ...u,
+    name: `${u.firstName} ${u.lastName}`.trim()
+  });
+
+  // Load session from cookies on mount
   useEffect(() => {
     const loadSession = async () => {
       try {
-        const storedUser = localStorage.getItem('auth_user');
-        const accessToken = localStorage.getItem('access_token');
-        const refreshToken = localStorage.getItem('refresh_token');
-
-        if (storedUser && accessToken) {
-          setUser(JSON.parse(storedUser));
-          setToken(accessToken);
-        } else if (refreshToken) {
-          // If access token is gone but refresh token exists, try to refresh
-          const refreshRes = await refreshSession(refreshToken);
-          if (refreshRes.success && refreshRes.accessToken) {
-            localStorage.setItem('access_token', refreshRes.accessToken);
-            setToken(refreshRes.accessToken);
-            if (storedUser) setUser(JSON.parse(storedUser));
+        const meRes = await getCurrentUser();
+        if (meRes.success && meRes.user) {
+          setUser(mapUser(meRes.user));
+          setToken('session-active');
+        } else {
+          // If initial me request fails, try refreshing the cookie session
+          const refreshRes = await refreshSession();
+          if (refreshRes.success) {
+            const retryRes = await getCurrentUser();
+            if (retryRes.success && retryRes.user) {
+              setUser(mapUser(retryRes.user));
+              setToken('session-active');
+            } else {
+              setUser(null);
+              setToken(null);
+            }
           } else {
-            // Revoked or expired refresh token
-            localStorage.removeItem('auth_user');
-            localStorage.removeItem('access_token');
-            localStorage.removeItem('refresh_token');
+            setUser(null);
+            setToken(null);
           }
         }
       } catch (err) {
-        console.error('Failed to load local session:', err);
+        console.error('Failed to load session:', err);
       } finally {
         setLoading(false);
       }
@@ -68,12 +72,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setLoading(true);
     try {
       const res = await loginUser(data);
-      if (res.success && res.user && res.accessToken && res.refreshToken) {
-        setUser(res.user);
-        setToken(res.accessToken);
-        localStorage.setItem('auth_user', JSON.stringify(res.user));
-        localStorage.setItem('access_token', res.accessToken);
-        localStorage.setItem('refresh_token', res.refreshToken);
+      if (res.success && res.user) {
+        const extUser = mapUser(res.user);
+        setUser(extUser);
+        setToken('session-active');
         router.push('/dashboard');
       }
       return res;
@@ -87,14 +89,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setLoading(true);
     try {
       const res = await registerUser(data);
-      if (res.success && res.user && res.accessToken && res.refreshToken) {
-        setUser(res.user);
-        setToken(res.accessToken);
-        localStorage.setItem('auth_user', JSON.stringify(res.user));
-        localStorage.setItem('access_token', res.accessToken);
-        localStorage.setItem('refresh_token', res.refreshToken);
-        router.push('/dashboard');
-      }
+      // We do NOT log in on registration since it defaults to isActive = false (pending Admin activation)
       return res;
     } finally {
       setLoading(false);
@@ -103,19 +98,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   // Logout handler
   const logout = async () => {
-    const refreshToken = localStorage.getItem('refresh_token');
-    if (refreshToken) {
-      try {
-        await logoutUser(refreshToken);
-      } catch (err) {
-        console.error('Logout API failure:', err);
-      }
+    try {
+      await logoutUser();
+    } catch (err) {
+      console.error('Logout API failure:', err);
     }
     setUser(null);
     setToken(null);
-    localStorage.removeItem('auth_user');
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
     router.push('/login');
   };
 

@@ -30,12 +30,31 @@ VendorBridge is a full-stack Procurement & Vendor Management ERP built for the O
 
 | Role | Key Capabilities |
 |------|-----------------|
-| **Admin** | Manage users, vendors, view all analytics |
+| **Admin** | Manage users (activate/deactivate), vendors, view all analytics — **created only via seed script** |
 | **Manager** | Approve/reject in approval workflow (L1 or L2), view reports |
 | **Officer** | Create RFQs, compare quotations, generate POs & Invoices |
 | **Vendor** | Submit quotations, view assigned RFQs, view own POs |
 
 Role is JWT-encoded. Every API route enforced with `requireRole([ ])` middleware.
+
+### ⚠️ Auth Policy (Critical Rules)
+
+1. **ADMIN role CANNOT be self-registered** — if `role: ADMIN` is sent to `/register`, Zod returns `403 Forbidden`. Admin accounts only via `npx prisma db seed`.
+2. **New registrations default to `isActive = false` (PENDING)** — no tokens issued on register.
+3. **Login with `isActive = false`** returns `403` with message: *"Your account is pending activation by an Admin."*
+4. **Admin activates users** via `PATCH /api/v1/admin/users/:id/activate` → sets `isActive = true`.
+5. **Onboarding flow**: Register → PENDING → Admin activates → Login → Tokens issued → Access.
+
+### Demo Accounts (seeded, all isActive=true)
+| Email | Password | Role |
+|-------|----------|------|
+| admin@example.com | admin123 | ADMIN |
+| manager1@example.com | manager123 | MANAGER (L1) |
+| manager2@example.com | manager456 | MANAGER (L2) |
+| officer@example.com | officer123 | OFFICER |
+| vendor1@example.com | vendor123 | VENDOR |
+| vendor2@example.com | vendor456 | VENDOR |
+| vendor3@example.com | vendor789 | VENDOR |
 
 ---
 

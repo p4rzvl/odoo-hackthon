@@ -1,9 +1,13 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
+import cookieParser from "cookie-parser";
 
+import path from "path";
 import healthRouter from "./routes/health.routes";
 import authRouter from "./routes/auth.routes";
+import vendorRouter from "./routes/vendor.routes";
+import rfqRouter from "./routes/rfq.routes";
 import { authenticateToken } from "./middleware/auth";
 import { AuthenticatedRequest } from "./types";
 
@@ -21,10 +25,14 @@ app.use(
   }),
 );
 app.use(express.json());
+app.use(cookieParser());
+app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 
 // Routes
 app.use("/api", healthRouter);
 app.use("/api/v1/auth", authRouter);
+app.use("/api/v1/vendors", vendorRouter);
+app.use("/api/v1/rfqs", rfqRouter);
 
 // Sample Protected Route
 app.get(

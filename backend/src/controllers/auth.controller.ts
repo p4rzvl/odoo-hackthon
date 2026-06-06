@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
+import { Role } from '@prisma/client';
 import prisma from '../lib/prisma';
 import { RegisterInput, LoginInput } from '../validations/auth.validation';
 import { sendSuccess, sendError } from '../lib/response';
@@ -27,7 +28,7 @@ const generateTokens = (user: { id: number; email: string; firstName: string; la
 // 1. REGISTER
 export const register = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { email, password, firstName, lastName, role, phone, country } = req.body as RegisterInput;
+    const { email, password, firstName, lastName, role, phone, country, profilePhoto } = req.body as RegisterInput;
 
     // Check if email already in use
     const existingUser = await prisma.user.findUnique({ where: { email } });
@@ -38,35 +39,24 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     // Hash password
     const passwordHash = await bcrypt.hash(password, 10);
 
-    // Save user
+    // Save user — isActive defaults to false (PENDING)
+    // Admin must activate the account from the User Management screen
     const user = await prisma.user.create({
       data: { 
         email, 
         passwordHash, 
         firstName, 
         lastName, 
-        role, 
+        role: role as Role,
         phone, 
         country,
-        isActive: true 
+        profilePhoto,
+        isActive: false  // PENDING — requires Admin activation
       }
     });
 
-    // Generate tokens
-    const { accessToken, refreshToken } = generateTokens(user);
-
-    // Save refresh token in DB
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 7); // 7 days
-
-    await prisma.refreshToken.create({
-      data: {
-        token: refreshToken,
-        userId: user.id,
-        expiresAt
-      }
-    });
-
+    // Do NOT issue tokens on registration — account is PENDING activation
+    // Tokens are only issued after Admin activates the account and user logs in
     return sendSuccess(res, {
       user: { 
         id: user.id, 
@@ -75,10 +65,10 @@ export const register = async (req: Request, res: Response): Promise<void> => {
         lastName: user.lastName, 
         role: user.role,
         phone: user.phone,
-        country: user.country
+        country: user.country,
+        isActive: false
       },
-      accessToken,
-      refreshToken
+      message: 'Registration successful. Your account is pending Admin approval. You will be notified once activated.'
     }, 201);
   } catch (error: any) {
     console.error('Registration failed:', error);
@@ -93,8 +83,13 @@ export const login = async (req: Request, res: Response): Promise<void> => {
 
     // Find user
     const user = await prisma.user.findUnique({ where: { email } });
-    if (!user || !user.isActive) {
+    if (!user) {
       return sendError(res, 'Invalid email or password.', 401);
+    }
+
+    // Block pending/deactivated accounts with a clear message
+    if (!user.isActive) {
+      return sendError(res, 'Your account is pending activation by an Admin. Please wait for approval.', 403);
     }
 
     // Verify password
@@ -118,6 +113,25 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       }
     });
 
+    // Set cookies
+    const isProduction = process.env.NODE_ENV === 'production';
+    const cookieOptions = {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: 'strict' as const,
+      path: '/',
+    };
+
+    res.cookie('accessToken', accessToken, {
+      ...cookieOptions,
+      maxAge: 30 * 60 * 1000, // 30 mins
+    });
+
+    res.cookie('refreshToken', refreshToken, {
+      ...cookieOptions,
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    });
+
     return sendSuccess(res, {
       user: { 
         id: user.id, 
@@ -127,9 +141,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
         role: user.role,
         phone: user.phone,
         country: user.country
-      },
-      accessToken,
-      refreshToken
+      }
     });
   } catch (error: any) {
     console.error('Login failed:', error);
@@ -140,7 +152,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
 // 3. REFRESH TOKEN
 export const refresh = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { refreshToken } = req.body;
+    const refreshToken = req.cookies?.refreshToken || req.body?.refreshToken;
 
     if (!refreshToken) {
       return sendError(res, 'Refresh token is required.', 400);
@@ -167,7 +179,17 @@ export const refresh = async (req: Request, res: Response): Promise<void> => {
     // Generate new tokens
     const { accessToken } = generateTokens(dbToken.user);
 
-    return sendSuccess(res, { accessToken });
+    // Set access token cookie
+    const isProduction = process.env.NODE_ENV === 'production';
+    res.cookie('accessToken', accessToken, {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: 'strict' as const,
+      path: '/',
+      maxAge: 30 * 60 * 1000, // 30 mins
+    });
+
+    return sendSuccess(res, { message: 'Token refreshed successfully.' });
   } catch (error: any) {
     console.error('Refresh token exchange failed:', error);
     return sendError(res, 'An internal server error occurred while refreshing your session.', 500);
@@ -177,7 +199,7 @@ export const refresh = async (req: Request, res: Response): Promise<void> => {
 // 4. LOGOUT
 export const logout = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { refreshToken } = req.body;
+    const refreshToken = req.cookies?.refreshToken || req.body?.refreshToken;
 
     if (refreshToken) {
       // Remove or revoke refresh token from DB
@@ -186,10 +208,84 @@ export const logout = async (req: Request, res: Response): Promise<void> => {
       });
     }
 
+    // Clear cookies
+    const isProduction = process.env.NODE_ENV === 'production';
+    const cookieOptions = {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: 'strict' as const,
+      path: '/',
+    };
+
+    res.clearCookie('accessToken', cookieOptions);
+    res.clearCookie('refreshToken', cookieOptions);
+
     return sendSuccess(res, { message: 'Successfully logged out.' });
   } catch (error: any) {
     console.error('Logout failed:', error);
     return sendError(res, 'An internal server error occurred during logout.', 500);
+  }
+};
+
+// 5. GET CURRENT USER (ME)
+export const me = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userId = (req as any).user?.id;
+    if (!userId) {
+      return sendError(res, 'Unauthorized.', 401);
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        role: true,
+        phone: true,
+        country: true,
+        isActive: true
+      }
+    });
+
+    if (!user || !user.isActive) {
+      return sendError(res, 'User not found or inactive.', 401);
+    }
+
+    return sendSuccess(res, { user });
+  } catch (error: any) {
+    console.error('Fetch current user failed:', error);
+    return sendError(res, 'An internal server error occurred.', 500);
+  }
+};
+
+// 6. LIST ALL USERS
+export const listUsers = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const role = req.query.role as string;
+    const where: any = {};
+    
+    if (role) {
+      where.role = role as Role;
+    }
+
+    const users = await prisma.user.findMany({
+      where,
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        role: true,
+        isActive: true
+      }
+    });
+
+    return sendSuccess(res, { users });
+  } catch (error: any) {
+    console.error('List users failed:', error);
+    return sendError(res, 'An internal server error occurred.', 500);
   }
 };
 

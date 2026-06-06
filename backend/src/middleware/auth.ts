@@ -14,8 +14,12 @@ interface DecodedToken {
 }
 
 export const authenticateToken = (req: AuthenticatedRequest, res: Response, next: NextFunction): void => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1]; // "Bearer <token>"
+  let token = req.cookies?.accessToken;
+
+  if (!token) {
+    const authHeader = req.headers['authorization'];
+    token = authHeader && authHeader.split(' ')[1]; // "Bearer <token>"
+  }
 
   if (!token) {
     return sendError(res, 'Access token is missing or invalid. Please login.', 401);
@@ -32,6 +36,13 @@ export const authenticateToken = (req: AuthenticatedRequest, res: Response, next
     };
     next();
   } catch (error) {
+    const isProduction = process.env.NODE_ENV === 'production';
+    res.clearCookie('accessToken', {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: 'strict' as const,
+      path: '/',
+    });
     return sendError(res, 'Token has expired or is invalid. Access denied.', 403);
   }
 };

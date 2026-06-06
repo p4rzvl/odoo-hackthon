@@ -2,12 +2,18 @@
 
 All endpoints are hosted under the base path `/api/v1`.
 
+Authentication uses **HTTP-only, Secure, SameSite=Strict cookies** for token storage:
+- `accessToken`: Short-lived token (30 minutes) for authorization.
+- `refreshToken`: Long-lived token (7 days) for session maintenance.
+
+For cross-origin calls (e.g. Next.js on port 3000 calling Express on port 5001), requests must be sent with credentials enabled (`credentials: 'include'` in fetch or `withCredentials: true` in axios). For testing tools like Postman, authorization can fallback to the standard `Authorization: Bearer <token>` header.
+
 ---
 
 ## 1. Authentication Endpoints
 
 ### `POST /api/v1/auth/register`
-Creates a new user record, hashes credentials, and logs the user in (issues access/refresh tokens).
+Creates a new user record in a pending activation state (`isActive: false`). No cookies or tokens are issued on registration.
 
 * **Headers**: `Content-Type: application/json`
 * **Request Payload**:
@@ -19,8 +25,7 @@ Creates a new user record, hashes credentials, and logs the user in (issues acce
     "lastName": "Doe",
     "role": "OFFICER",
     "phone": "+1234567890",
-    "country": "Belgium",
-    "profilePhoto": "data:image/png;base64,iVBORw0KGgoAAA..."
+    "country": "Belgium"
   }
   ```
 * **Validation Rules**:
@@ -28,10 +33,9 @@ Creates a new user record, hashes credentials, and logs the user in (issues acce
   - `password`: Required, minimum length 6 characters.
   - `firstName`: Required, minimum length 1, trimmed.
   - `lastName`: Required, minimum length 1, trimmed.
-  - `role`: Optional (defaults to `OFFICER`), enum values: `ADMIN`, `MANAGER`, `OFFICER`, `VENDOR`.
+  - `role`: Required, enum values: `MANAGER`, `OFFICER`, `VENDOR` (`ADMIN` registration is forbidden).
   - `phone`: Optional string.
   - `country`: Optional string.
-  - `profilePhoto`: Optional base64 or file URL string.
 * **Success Response (201 Created)**:
   ```json
   {
@@ -44,22 +48,10 @@ Creates a new user record, hashes credentials, and logs the user in (issues acce
         "lastName": "Doe",
         "role": "OFFICER",
         "phone": "+1234567890",
-        "country": "Belgium"
+        "country": "Belgium",
+        "isActive": false
       },
-      "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MS...",
-      "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MS..."
-    }
-  }
-  ```
-* **Validation Failure Response (400 Bad Request)**:
-  ```json
-  {
-    "success": false,
-    "error": "Password must be at least 6 characters long",
-    "fields": {
-      "password": [
-        "Password must be at least 6 characters long"
-      ]
+      "message": "Registration successful. Your account is pending Admin approval. You will be notified once activated."
     }
   }
   ```
@@ -67,7 +59,7 @@ Creates a new user record, hashes credentials, and logs the user in (issues acce
 ---
 
 ### `POST /api/v1/auth/login`
-Verifies user credentials and issues session tokens.
+Verifies credentials and issues `accessToken` and `refreshToken` cookies.
 
 * **Headers**: `Content-Type: application/json`
 * **Request Payload**:
@@ -77,6 +69,9 @@ Verifies user credentials and issues session tokens.
     "password": "securepassword123"
   }
   ```
+* **Cookies Set**:
+  - `accessToken=<token>; HttpOnly; SameSite=Strict; Max-Age=1800`
+  - `refreshToken=<token>; HttpOnly; SameSite=Strict; Max-Age=604800`
 * **Success Response (200 OK)**:
   ```json
   {
@@ -90,9 +85,7 @@ Verifies user credentials and issues session tokens.
         "role": "OFFICER",
         "phone": "+1234567890",
         "country": "Belgium"
-      },
-      "accessToken": "eyJhbG...",
-      "refreshToken": "eyJhbG..."
+      }
     }
   }
   ```
@@ -103,25 +96,27 @@ Verifies user credentials and issues session tokens.
     "error": "Invalid email or password."
   }
   ```
+* **Failure Response (403 Forbidden - Inactive Account)**:
+  ```json
+  {
+    "success": false,
+    "error": "Your account is pending activation by an Admin. Please wait for approval."
+  }
+  ```
 
 ---
 
 ### `POST /api/v1/auth/refresh`
-Exchanges a valid refresh token for a new short-lived access token.
+Exchanges the valid `refreshToken` cookie for a new `accessToken` cookie.
 
-* **Headers**: `Content-Type: application/json`
-* **Request Payload**:
-  ```json
-  {
-    "refreshToken": "eyJhbGciOiJIUzI1..."
-  }
-  ```
+* **Cookies Sent**: `refreshToken` (HttpOnly)
+* **Cookies Set**: `accessToken=<new-token>; HttpOnly; SameSite=Strict; Max-Age=1800`
 * **Success Response (200 OK)**:
   ```json
   {
     "success": true,
     "data": {
-      "accessToken": "eyJhbGciOiJIUzI1Ni..."
+      "message": "Token refreshed successfully."
     }
   }
   ```
@@ -136,15 +131,10 @@ Exchanges a valid refresh token for a new short-lived access token.
 ---
 
 ### `POST /api/v1/auth/logout`
-Deletes/revokes the refresh token from the database, ending the user session.
+Deletes the session's refresh token from the database and clears the cookies.
 
-* **Headers**: `Content-Type: application/json`
-* **Request Payload**:
-  ```json
-  {
-    "refreshToken": "eyJhbGciOiJIUzI1..."
-  }
-  ```
+* **Cookies Sent**: `refreshToken` (HttpOnly)
+* **Cookies Cleared**: `accessToken`, `refreshToken`
 * **Success Response (200 OK)**:
   ```json
   {
@@ -157,13 +147,37 @@ Deletes/revokes the refresh token from the database, ending the user session.
 
 ---
 
+### `GET /api/v1/auth/me`
+Retrieves details of the currently logged-in user.
+
+* **Cookies Sent**: `accessToken` (HttpOnly)
+* **Success Response (200 OK)**:
+  ```json
+  {
+    "success": true,
+    "data": {
+      "user": {
+        "id": 1,
+        "email": "john.doe@example.com",
+        "firstName": "John",
+        "lastName": "Doe",
+        "role": "OFFICER",
+        "phone": "+1234567890",
+        "country": "Belgium",
+        "isActive": true
+      }
+    }
+  }
+  ```
+
+---
+
 ## 2. Protected Data Endpoints
 
 ### `GET /api/v1/dashboard/metrics`
-Retrieves dashboard summary statistics. Access is restricted to users presenting a valid access token.
+Retrieves dashboard summary statistics. Access is restricted to users presenting a valid access token in cookies (or Authorization header).
 
-* **Headers**:
-  - `Authorization: Bearer <access_token>`
+* **Cookies Sent**: `accessToken` (HttpOnly)
 * **Success Response (200 OK)**:
   ```json
   {

@@ -1,5 +1,8 @@
 import { z } from 'zod';
-import { Role } from '@prisma/client';
+
+// Roles allowed via public self-registration.
+// ADMIN is intentionally excluded — Admin accounts are created only via seed script.
+const PUBLIC_ROLES = ['OFFICER', 'VENDOR', 'MANAGER'] as const;
 
 export const registerSchema = z.object({
   email: z
@@ -19,13 +22,25 @@ export const registerSchema = z.object({
     .string()
     .min(1, 'Last name cannot be empty')
     .trim(),
+  // ADMIN role is forbidden — Zod rejects it before controller is reached
   role: z
-    .nativeEnum(Role, { message: 'Invalid user role' })
-    .default(Role.OFFICER),
+    .enum(PUBLIC_ROLES, {
+      message: 'Forbidden: Admin accounts cannot be self-registered. Choose OFFICER, VENDOR, or MANAGER.'
+    })
+    .default('OFFICER'),
   phone: z
     .string()
-    .optional(),
+    .optional()
+    .refine((val) => !val || /^\d{10}$/.test(val.replace(/[-() ]/g, '')), {
+      message: 'Phone number must be exactly 10 digits'
+    }),
   country: z
+    .string()
+    .optional(),
+  profilePhoto: z
+    .string()
+    .optional(),
+  additionalInfo: z
     .string()
     .optional()
 });

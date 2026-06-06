@@ -1,0 +1,184 @@
+erDiagram
+  USER {
+    int id PK
+    string email
+    string passwordHash
+    string firstName
+    string lastName
+    string role
+    string phone
+    string country
+    string profilePhoto
+    boolean isActive
+    datetime createdAt
+    datetime updatedAt
+  }
+
+  VENDOR {
+    int id PK
+    int userId FK
+    string companyName
+    string gstNumber
+    string category
+    string contactNumber
+    string address
+    string status
+    datetime createdAt
+    datetime updatedAt
+  }
+
+  RFQ {
+    int id PK
+    string title
+    string category
+    string description
+    datetime deadline
+    string status
+    int createdBy FK
+    datetime createdAt
+    datetime updatedAt
+  }
+
+  RFQ_LINE_ITEM {
+    int id PK
+    int rfqId FK
+    string itemName
+    int quantity
+    string unit
+    datetime createdAt
+    datetime updatedAt
+  }
+
+  RFQ_VENDOR {
+    int id PK
+    int rfqId FK
+    int vendorId FK
+    datetime invitedAt
+  }
+
+  RFQ_ATTACHMENT {
+    int id PK
+    int rfqId FK
+    string fileName
+    string filePath
+    datetime uploadedAt
+  }
+
+  QUOTATION {
+    int id PK
+    int rfqId FK
+    int vendorId FK
+    float gstPercent
+    float subtotal
+    float taxAmount
+    float grandTotal
+    string status
+    datetime createdAt
+    datetime updatedAt
+  }
+
+  QUOTATION_ITEM {
+    int id PK
+    int quotationId FK
+    int rfqLineItemId FK
+    float unitPrice
+    float totalPrice
+    int deliveryDays
+    datetime createdAt
+    datetime updatedAt
+  }
+
+  APPROVAL {
+    int id PK
+    int quotationId FK
+    int approverId FK
+    string level
+    string status
+    string remarks
+    datetime assignedAt
+    datetime actionedAt
+  }
+
+  PURCHASE_ORDER {
+    int id PK
+    string poNumber
+    int quotationId FK
+    int vendorId FK
+    float totalAmount
+    string status
+    datetime createdAt
+    datetime updatedAt
+  }
+
+  INVOICE {
+    int id PK
+    string invoiceNumber
+    int poId FK
+    datetime invoiceDate
+    datetime dueDate
+    float subtotal
+    float cgst
+    float sgst
+    float grandTotal
+    string status
+    string pdfPath
+    datetime createdAt
+    datetime updatedAt
+  }
+
+  ACTIVITY_LOG {
+    int id PK
+    int actorId FK
+    string actionType
+    string description
+    int entityId
+    string entityType
+    datetime createdAt
+  }
+
+  NOTIFICATION {
+    int id PK
+    int userId FK
+    string message
+    string type
+    boolean isRead
+    int relatedEntityId
+    string entityType
+    datetime createdAt
+  }
+
+  REFRESH_TOKEN {
+    int id PK
+    string token
+    int userId FK
+    datetime expiresAt
+    boolean revoked
+    datetime createdAt
+  }
+
+  USER ||--o{ VENDOR : "owns profile"
+  USER ||--o{ RFQ : "creates"
+  USER ||--o{ APPROVAL : "approves"
+  USER ||--o{ ACTIVITY_LOG : "acts as"
+  USER ||--o{ NOTIFICATION : "receives"
+  USER ||--o{ REFRESH_TOKEN : "has"
+
+  VENDOR ||--o{ RFQ_VENDOR : "invited in"
+  RFQ ||--o{ RFQ_LINE_ITEM : "contains"
+  RFQ ||--o{ RFQ_VENDOR : "assigned to"
+  RFQ ||--o{ RFQ_ATTACHMENT : "has"
+  RFQ ||--o{ QUOTATION : "receives"
+
+  QUOTATION ||--o{ QUOTATION_ITEM : "includes"
+  RFQ_LINE_ITEM ||--o{ QUOTATION_ITEM : "quoted against"
+  QUOTATION ||--o{ APPROVAL : "needs"
+  QUOTATION ||--o| PURCHASE_ORDER : "generates"
+
+  VENDOR ||--o{ QUOTATION : "submits"
+  VENDOR ||--o{ PURCHASE_ORDER : "fulfilled by"
+
+  PURCHASE_ORDER ||--o| INVOICE : "bills into"
+  INVOICE ||--o{ ACTIVITY_LOG : "tracked by"
+  RFQ ||--o{ ACTIVITY_LOG : "tracked by"
+  QUOTATION ||--o{ ACTIVITY_LOG : "tracked by"
+  PURCHASE_ORDER ||--o{ ACTIVITY_LOG : "tracked by"

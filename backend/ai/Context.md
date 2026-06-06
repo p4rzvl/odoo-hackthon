@@ -11,7 +11,7 @@ All ERP modules (vendors, RFQs, quotations, approvals, POs, invoices, reports) a
 - **Framework**: Express.js
 - **ORM**: Prisma 7 (with `@prisma/adapter-pg` driver adapter for Neon compatibility)
 - **Validation**: Zod schemas on all routes
-- **Auth**: JWT access tokens (30min) + refresh tokens (7d) stored in DB
+- **Auth**: JWT access tokens (30min) + refresh tokens (7d) stored in DB, sent via HTTP-only secure cookies (`accessToken` and `refreshToken`) for enhanced security.
 
 ---
 
@@ -53,6 +53,35 @@ src/
 | `notifications` | id, userId, message, type, isRead, relatedEntityId, entityType, createdAt | |
 
 > **CRITICAL**: Never add UPDATE or DELETE operations on `activity_logs` table — it must remain immutable.
+
+---
+
+## Auth Policy (CRITICAL — Do Not Change)
+
+### Registration Rules
+- **Public `/register` endpoint allows only**: `OFFICER`, `VENDOR`, `MANAGER` roles
+- **ADMIN role is completely blocked** from self-registration — Zod validation returns `403 Forbidden` if anyone sends `role: ADMIN`
+- **New registrations default to `isActive: false` (PENDING)** — user cannot log in until Admin activates them
+- **No tokens are issued on registration** — user must wait for activation, then log in manually
+- **Admin accounts are created ONLY via `prisma/seed.ts`** seeding script
+
+### Login Rules
+- Login checks `isActive === true` — if false, returns `403 Forbidden` with message `"Your account is pending activation by an Admin. Please wait for approval."`
+- Blocked/deactivated users are also rejected.
+- Successful login sets `accessToken` and `refreshToken` as HttpOnly, Secure, SameSite=Strict cookies; no tokens are returned in the response body.
+
+### Onboarding Flow
+```
+1. User self-registers → isActive=false (PENDING)
+2. Admin logs in (seeded account) → sees pending users in /admin/users list
+3. Admin clicks "Activate" → isActive=true
+4. User logs in → tokens issued → access granted
+```
+
+### Admin Module (to build later)
+- `GET  /api/v1/admin/users`          → list all users with filters (Admin only)
+- `PATCH /api/v1/admin/users/:id/activate`  → set isActive=true (Admin only)
+- `PATCH /api/v1/admin/users/:id/deactivate` → set isActive=false (Admin only)
 
 ---
 
@@ -212,3 +241,11 @@ ORG_GSTIN=              # Invoice bill-to GSTIN
 - `POST /api/v1/auth/login`
 - `POST /api/v1/auth/logout`
 - `POST /api/v1/auth/refresh`
+- `GET /api/v1/auth/me` — retrieve active session profile
+- `GET /api/v1/rfqs` — list RFQs with filtering
+- `GET /api/v1/rfqs/:id` — retrieve RFQ detailed view
+- `POST /api/v1/rfqs` — create new RFQ
+- `PUT /api/v1/rfqs/:id` — update RFQ details and sync items
+- `POST /api/v1/rfqs/:id/send` — publish RFQ (transitions status to PUBLISHED)
+- `POST /api/v1/rfqs/upload` — multipart file uploads to locally stored directories
+
