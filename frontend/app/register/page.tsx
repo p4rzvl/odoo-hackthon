@@ -77,10 +77,9 @@ export default function RegisterPage() {
   return (
     <div className="min-h-screen bg-[#f8f9fa] flex items-center justify-center p-6 font-sans text-[#212529]">
       <div className="w-full max-w-2xl bg-white rounded-[12px] border border-[#e5e5e5] shadow-[0_4px_12px_rgba(0,0,0,0.05)] overflow-hidden">
-        {/* Banner with Odoo brand primary color */}
+        {/* Banner with VendorBridge primary color */}
         <div className="bg-[#714B67] p-6 text-center text-white relative">
-          <h1 className="text-2xl font-bold tracking-tight">Create Odoo ERP Account</h1>
-          <p className="text-xs text-purple-200 mt-1">Registration Screen (Screen 2)</p>
+          <h1 className="text-2xl font-bold tracking-tight">Create VendorBridge Account</h1>
         </div>
 
         {/* Form */}

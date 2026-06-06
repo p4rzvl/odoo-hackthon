@@ -36,12 +36,14 @@ export const listInvoices = async (filters: {
   status?: string;
   page: number;
   limit: number;
+  vendorId?: number;
 }) => {
-  const { status, page, limit } = filters;
+  const { status, page, limit, vendorId } = filters;
   const skip = (page - 1) * limit;
   const where: any = {};
 
   if (status) where.status = status;
+  if (vendorId) where.purchaseOrder = { vendorId };
 
   const [items, total] = await Promise.all([
     prisma.invoice.findMany({
@@ -79,6 +81,7 @@ export const getInvoiceById = async (id: number) => {
       purchaseOrder: {
         select: {
           id: true,
+          vendorId: true,
           poNumber: true,
           totalAmount: true,
           status: true,

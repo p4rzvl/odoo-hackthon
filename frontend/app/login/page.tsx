@@ -62,10 +62,9 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen bg-[#f8f9fa] flex items-center justify-center p-6 font-sans text-[#212529]">
       <div className="w-full max-w-md bg-white rounded-[12px] border border-[#e5e5e5] shadow-[0_4px_12px_rgba(0,0,0,0.05)] overflow-hidden">
-        {/* Banner with Odoo brand primary color */}
+        {/* Banner with VendorBridge primary color */}
         <div className="bg-[#714B67] p-6 text-center text-white">
-          <h1 className="text-xl font-bold tracking-tight font-sans">Odoo ERP Login</h1>
-          <p className="text-xs text-purple-200 mt-1">Login Screen (Screen 1)</p>
+          <h1 className="text-xl font-bold tracking-tight font-sans">VendorBridge</h1>
         </div>
 
         {/* Login form */}
