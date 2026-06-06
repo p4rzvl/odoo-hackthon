@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import * as invoiceService from '../services/invoice.service';
 import { sendSuccess, sendError } from '../lib/response';
 import { AuthenticatedRequest } from '../types';
+import prisma from '../lib/prisma';
 
 export const createInvoice = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -30,10 +31,18 @@ export const listInvoices = async (req: Request, res: Response): Promise<void> =
     const authReq = req as AuthenticatedRequest;
     if (!authReq.user) return sendError(res, 'Authentication credentials missing', 401);
 
+    let vendorId: number | undefined;
+    if (authReq.user.role === 'VENDOR') {
+      const vendor = await prisma?.vendor.findUnique({ where: { userId: authReq.user.id } });
+      if (!vendor) return sendError(res, 'Vendor profile not found', 404);
+      vendorId = vendor.id;
+    }
+
     const filters = {
       status: req.query.status as string,
       page: parseInt(req.query.page as string || '1', 10),
-      limit: parseInt(req.query.limit as string || '20', 10)
+      limit: parseInt(req.query.limit as string || '20', 10),
+      vendorId
     };
 
     const { items, total } = await invoiceService.listInvoices(filters);
@@ -62,6 +71,15 @@ export const getInvoiceDetail = async (req: Request, res: Response): Promise<voi
     if (isNaN(id)) return sendError(res, 'Invalid Invoice ID parameter', 400);
 
     const invoice = await invoiceService.getInvoiceDetail(id);
+
+    // VENDOR can only view their own invoices
+    if (authReq.user.role === 'VENDOR') {
+      const vendor = await prisma?.vendor.findUnique({ where: { userId: authReq.user.id } });
+      if (!vendor || invoice.purchaseOrder.vendorId !== vendor.id) {
+        return sendError(res, 'Access denied', 403);
+      }
+    }
+
     return sendSuccess(res, { invoice });
   } catch (error: any) {
     if (error.message.includes('not found')) return sendError(res, error.message, 404);

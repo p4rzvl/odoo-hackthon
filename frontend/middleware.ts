@@ -17,7 +17,8 @@ export function middleware(request: NextRequest) {
     '/purchase-orders',
     '/activity-logs',
     '/reports',
-    '/admin'
+    '/admin',
+    '/notifications'
   ];
 
   const isProtected = protectedPaths.some(path => pathname.startsWith(path));
@@ -42,6 +43,7 @@ export const config = {
     '/purchase-orders/:path*',
     '/activity-logs/:path*',
     '/reports/:path*',
+    '/notifications/:path*',
     '/login',
     '/register',
   ],

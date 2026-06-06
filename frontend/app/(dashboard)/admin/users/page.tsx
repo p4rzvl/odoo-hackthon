@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../../../../context/AuthContext';
+import { useSearchParams } from 'next/navigation';
 import RoleGuard from '../../../../components/RoleGuard';
 import StatusBadge from '../../../../components/StatusBadge';
-import { Loader2, Shield, UserCheck, UserX, RefreshCw } from 'lucide-react';
+import { Loader2, Shield, UserCheck, UserX, RefreshCw, Search, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { toast } from 'sonner';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api';
@@ -18,12 +19,30 @@ interface User {
   isActive: boolean;
   approvalLevel: number | null;
   createdAt: string;
+  updatedAt: string;
 }
+
+const ROLES = ['ADMIN', 'MANAGER', 'OFFICER', 'VENDOR'];
+const STATUSES = ['PENDING', 'ACTIVE', 'INACTIVE'];
 
 export default function AdminUsersPage() {
   const { user } = useAuth();
+  const searchParams = useSearchParams();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [roleFilter, setRoleFilter] = useState<Set<string>>(new Set());
+  const [statusFilter, setStatusFilter] = useState<Set<string>>(new Set());
+  const [page, setPage] = useState(1);
+  const perPage = 8;
+
+  // Read query param on mount
+  useEffect(() => {
+    const status = searchParams.get('status');
+    if (status === 'PENDING') {
+      setStatusFilter(new Set(['PENDING']));
+    }
+  }, []);
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -40,6 +59,54 @@ export default function AdminUsersPage() {
   };
 
   useEffect(() => { fetchUsers(); }, []);
+
+  const filtered = useMemo(() => {
+    let result = users;
+    if (search) {
+      const q = search.toLowerCase();
+      result = result.filter(u =>
+        u.firstName.toLowerCase().includes(q) ||
+        u.lastName.toLowerCase().includes(q) ||
+        u.email.toLowerCase().includes(q)
+      );
+    }
+    if (roleFilter.size > 0) {
+      result = result.filter(u => roleFilter.has(u.role));
+    }
+    if (statusFilter.has('PENDING')) {
+      result = result.filter(u => !u.isActive && u.createdAt === u.updatedAt);
+    }
+    if (statusFilter.has('INACTIVE')) {
+      result = result.filter(u => !u.isActive && u.createdAt !== u.updatedAt);
+    }
+    if (statusFilter.has('ACTIVE')) {
+      result = result.filter(u => u.isActive);
+    }
+    return result;
+  }, [users, search, roleFilter, statusFilter]);
+
+  const totalPages = Math.ceil(filtered.length / perPage);
+  const paginated = filtered.slice((page - 1) * perPage, page * perPage);
+
+  useEffect(() => { setPage(1); }, [search, roleFilter, statusFilter]);
+
+  const toggleRole = (r: string) => {
+    setRoleFilter(prev => {
+      const next = new Set(prev);
+      if (next.has(r)) next.delete(r);
+      else next.add(r);
+      return next;
+    });
+  };
+
+  const toggleStatus = (s: string) => {
+    setStatusFilter(prev => {
+      const next = new Set(prev);
+      if (next.has(s)) next.delete(s);
+      else next.add(s);
+      return next;
+    });
+  };
 
   const toggleActive = async (userId: number) => {
     const res = await fetch(`${API_URL}/v1/admin/users/${userId}/activate`, {
@@ -84,6 +151,68 @@ export default function AdminUsersPage() {
           </button>
         </div>
 
+        {/* Search & Filter */}
+        <div className="flex flex-col gap-3">
+          <div className="relative flex-1 max-w-xs">
+            <Search className="absolute left-3 top-2.5 w-4 h-4 text-[#8F8F8F]" />
+            <input
+              type="text"
+              placeholder="Search by name or email..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="bg-[#f8f9fa] w-full pl-9 pr-4 py-2 rounded-[6px] text-xs outline-none border border-[#e5e5e5] focus:border-[#714B67] text-[#212529] transition-all"
+            />
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex flex-wrap gap-1">
+              {ROLES.map(r => (
+                <button
+                  key={r}
+                  onClick={() => toggleRole(r)}
+                  className={`px-3 py-1.5 text-[10px] font-bold uppercase rounded-full border transition-all ${
+                    roleFilter.has(r)
+                      ? 'bg-[#714B67] text-white border-[#714B67]'
+                      : 'bg-white text-[#6b7280] border-[#e5e5e5] hover:border-[#714B67] hover:text-[#714B67]'
+                  }`}
+                >
+                  {r === 'ALL' ? 'All Roles' : r}
+                </button>
+              ))}
+            </div>
+            <div className="w-px h-6 bg-[#e5e5e5]" />
+            <div className="flex flex-wrap gap-1">
+              {STATUSES.map(s => {
+                let activeStyle = 'bg-[#714B67] text-white border-[#714B67]';
+                if (s === 'PENDING') activeStyle = 'bg-amber-500 text-white border-amber-500';
+                else if (s === 'ACTIVE') activeStyle = 'bg-emerald-500 text-white border-emerald-500';
+                else if (s === 'INACTIVE') activeStyle = 'bg-slate-500 text-white border-slate-500';
+                return (
+                  <button
+                    key={s}
+                    onClick={() => toggleStatus(s)}
+                    className={`px-3 py-1.5 text-[10px] font-bold uppercase rounded-full border transition-all ${
+                      statusFilter.has(s)
+                        ? activeStyle
+                        : 'bg-white text-[#6b7280] border-[#e5e5e5] hover:border-[#714B67] hover:text-[#714B67]'
+                    }`}
+                  >
+                    {s === 'ALL' ? 'All' : s}
+                  </button>
+                );
+              })}
+            </div>
+            {(roleFilter.size > 0 || statusFilter.size > 0) && (
+              <button
+                onClick={() => { setRoleFilter(new Set()); setStatusFilter(new Set()); }}
+                className="flex items-center gap-1 px-2 py-1 text-[10px] text-[#6b7280] hover:text-red-600 transition-all"
+              >
+                <X className="w-3 h-3" />
+                Clear
+              </button>
+            )}
+          </div>
+        </div>
+
         <div className="bg-white rounded-[8px] border border-[#e5e5e5] shadow-[0_1px_3px_rgba(0,0,0,0.05)] overflow-hidden">
           {loading ? (
             <div className="py-24 text-center">
@@ -104,7 +233,7 @@ export default function AdminUsersPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {users.map((u, i) => (
+                  {paginated.map((u, i) => (
                     <tr key={u.id} className={`border-b border-[#e5e5e5] hover:bg-[#e5e5e5]/10 transition-colors ${i % 2 === 0 ? 'bg-white' : 'bg-[#fcfbfd]'}`}>
                       <td className="p-4">
                         <span className="font-bold">{u.firstName} {u.lastName}</span>
@@ -145,11 +274,50 @@ export default function AdminUsersPage() {
                       </td>
                     </tr>
                   ))}
+                  {paginated.length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="p-8 text-center text-sm text-[#6b7280]">No users match your filters.</td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
           )}
         </div>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between text-xs text-[#6b7280]">
+            <span>Showing {(page - 1) * perPage + 1}–{Math.min(page * perPage, filtered.length)} of {filtered.length}</span>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className="p-1.5 border border-[#e5e5e5] hover:bg-[#f8f9fa] rounded-[4px] disabled:opacity-30 transition-all"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" />
+              </button>
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
+                <button
+                  key={p}
+                  onClick={() => setPage(p)}
+                  className={`px-2.5 py-1 rounded-[4px] font-bold transition-all ${
+                    page === p ? 'bg-[#714B67] text-white' : 'border border-[#e5e5e5] hover:bg-[#f8f9fa]'
+                  }`}
+                >
+                  {p}
+                </button>
+              ))}
+              <button
+                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+                className="p-1.5 border border-[#e5e5e5] hover:bg-[#f8f9fa] rounded-[4px] disabled:opacity-30 transition-all"
+              >
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </RoleGuard>
   );

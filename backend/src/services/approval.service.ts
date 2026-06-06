@@ -1,6 +1,7 @@
 import * as approvalRepository from '../repositories/approval.repository';
 import prisma from '../lib/prisma';
 import { logActivity } from '../lib/activityLogger';
+import { sendApprovalNotification, sendPoNotification } from '../lib/email';
 
 export const listApprovals = async (userId: number, status?: string) => {
   const approvals = await approvalRepository.listApprovalsByApprover(userId, status);
@@ -86,6 +87,12 @@ export const approveApproval = async (userId: number, approvalId: number, remark
           entityType: 'approval'
         }
       });
+
+      // Email L2 manager
+      const l2User = await prisma.user.findUnique({ where: { id: l2Approval.approverId } });
+      if (l2User) {
+        await sendApprovalNotification(l2User.email, `${l2User.firstName} ${l2User.lastName}`, rfq.title, 2, 'assigned');
+      }
     }
 
     // Log activity
@@ -123,6 +130,12 @@ export const approveApproval = async (userId: number, approvalId: number, remark
       }
     });
 
+    // Email the officer
+    const officerUser = rfq.creator;
+    if (officerUser) {
+      await sendApprovalNotification(officerUser.email, `${officerUser.firstName} ${officerUser.lastName}`, rfq.title, 2, 'approved');
+    }
+
     // Notify the vendor
     const vendorUserId = quotation.vendor.user?.id;
     if (vendorUserId) {
@@ -135,6 +148,17 @@ export const approveApproval = async (userId: number, approvalId: number, remark
           entityType: 'purchase_order'
         }
       });
+    }
+
+    // Email vendor about PO
+    const vendorUser = quotation.vendor.user;
+    if (vendorUser) {
+      await sendPoNotification(
+        vendorUser.email,
+        `${vendorUser.firstName} ${vendorUser.lastName}`,
+        po.poNumber,
+        Number(quotation.grandTotal)
+      );
     }
 
     // Log activity
@@ -201,6 +225,12 @@ export const rejectApproval = async (userId: number, approvalId: number, remarks
       entityType: 'approval'
     }
   });
+
+  // Email the officer
+  const officerUser = rfq.creator;
+  if (officerUser) {
+    await sendApprovalNotification(officerUser.email, `${officerUser.firstName} ${officerUser.lastName}`, rfq.title, approval.level, 'rejected');
+  }
 
   // 6. Log activity
   await logActivity({

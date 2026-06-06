@@ -1,7 +1,9 @@
 import * as quotationRepository from '../repositories/quotation.repository';
 import * as rfqRepository from '../repositories/rfq.repository';
 import prisma from '../lib/prisma';
+import { Prisma } from '@prisma/client';
 import { logActivity } from '../lib/activityLogger';
+import { sendApprovalNotification } from '../lib/email';
 import { CreateQuotationInput, UpdateQuotationInput } from '../validations/quotation.validation';
 
 export const submitNewQuotation = async (userId: number, data: CreateQuotationInput) => {
@@ -142,6 +144,12 @@ export const selectQuotationForApproval = async (officerId: number, rfqId: numbe
         entityType: 'quotation'
       }
     });
+
+    // Email L1 manager
+    const l1User = await prisma.user.findUnique({ where: { id: l1Approval.approverId } });
+    if (l1User) {
+      await sendApprovalNotification(l1User.email, `${l1User.firstName} ${l1User.lastName}`, rfq.title, 1, 'assigned');
+    }
   }
 
   // 4. Log activity

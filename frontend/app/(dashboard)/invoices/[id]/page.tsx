@@ -144,14 +144,14 @@ export default function InvoiceDetailPage() {
               <span>RFQ Reference</span>
             </h3>
             <div className="bg-[#f8f9fa] border border-[#e5e5e5] rounded-[6px] p-4 space-y-2">
-              <div className="text-sm font-bold text-[#212529]">{invoice.purchaseOrder.quotation.rfq.title}</div>
-              <div className="text-[10px] text-[#6b7280]">Category: {invoice.purchaseOrder.quotation.rfq.category}</div>
+              <div className="text-sm font-bold text-[#212529]">{invoice.purchaseOrder.quotation?.rfq?.title ?? 'N/A'}</div>
+                <div className="text-[10px] text-[#6b7280]">Category: {invoice.purchaseOrder.quotation?.rfq?.category ?? 'N/A'}</div>
             </div>
           </div>
         </div>
 
         {/* Line Items */}
-        {invoice.purchaseOrder.quotation.items && invoice.purchaseOrder.quotation.items.length > 0 && (
+        {invoice.purchaseOrder.quotation?.items && invoice.purchaseOrder.quotation.items.length > 0 && (
           <div className="space-y-3 pt-2">
             <h3 className="text-xs font-bold uppercase tracking-wider text-[#6b7280] flex items-center">
               <FileText className="w-4 h-4 mr-1.5 text-slate-400" />

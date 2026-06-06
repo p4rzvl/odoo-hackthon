@@ -72,11 +72,12 @@ Role is JWT-encoded. Every API route enforced with `requireRole([ ])` middleware
 | Approvals (L1/L2 list, approve/reject with remarks, PO auto-gen) | `routes/`, `controllers/`, `services/`, `repositories/`, `validations/` | ✅ |
 | Purchase Orders (list with pagination, detail, status update) | `routes/`, `controllers/`, `services/`, `repositories/`, `validations/` | ✅ |
 | Activity Logger (write-only, immutable audit trail) | `lib/activityLogger.ts` | ✅ |
-| Notifications (in-app, created in services) | No dedicated route yet (created inline in services) | ⏳ |
+| Activity Logs (GET list/detail with filters + pagination) | `routes/`, `controllers/`, `services/`, `repositories/` | ✅ |
+| Notifications (in-app + email) | `routes/`, `controllers/`, `services/`, `repositories/`, `lib/` | ✅ |
 | Admin (user activate/deactivate) | `routes/`, `controllers/` | ✅ |
-| Dashboard (summary stats) | Not started | ❌ |
-| Invoices (CRUD, PDF, email) | Not started | ❌ |
-| Reports (analytics, CSV export) | Not started | ❌ |
+| Dashboard (live metrics from DB) | `routes/`, `controllers/`, `services/` | ✅ |
+| Invoices (CRUD, PDF, email) | `routes/`, `controllers/`, `services/`, `repositories/`, `validations/` | ✅ |
+| Reports (overview, spend trend, vendor spend, CSV export) | `routes/`, `controllers/`, `services/`, `repositories/` | ✅ |
 
 ### Frontend Pages
 
@@ -84,7 +85,7 @@ Role is JWT-encoded. Every API route enforced with `requireRole([ ])` middleware
 |---|--------|-------|------|--------|
 | 1 | Login | `/login` | All | ✅ |
 | 2 | Register | `/register` | All | ✅ |
-| 3 | Dashboard | `/dashboard` | All | ✅ |
+| 3 | Dashboard (live data from API) | `/dashboard` | All | ✅ |
 | 4 | Vendor Management | `/vendors` | Officer/Admin | ✅ |
 | 5 | RFQ List | `/rfqs` | Officer/Admin | ✅ |
 | 6 | RFQ Create | `/rfqs/create` | Officer | ✅ |
@@ -99,8 +100,9 @@ Role is JWT-encoded. Every API route enforced with `requireRole([ ])` middleware
 | 15 | Invoice Create | `/invoices/create` | Officer/Admin | ✅ |
 | 16 | Invoice Detail | `/invoices/[id]` | All | ✅ |
 | 17 | Admin Users | `/admin/users` | Admin | ✅ |
-| 18 | Activity Logs | `/activity-logs` | All | ❌ |
-| 19 | Reports | `/reports` | Admin/Manager | ❌ |
+| 18 | Activity Logs (role-filtered, paginated timeline, detail modal) | `/activity-logs` | All roles | ✅ |
+| 19 | Reports (6 KPI cards, spend by category bars, vendor breakdown, monthly trend chart, month selector, CSV export) | `/reports` | Admin/Officer/Manager | ✅ |
+| 20 | Notifications (bell dropdown + full page, live unread count, type badges, pagination) | `/notifications` | All roles | ✅ |
 
 ---
 
@@ -146,6 +148,7 @@ Role is JWT-encoded. Every API route enforced with `requireRole([ ])` middleware
   - "Office Laptops & Peripherals" — 50 laptops, 30 monitors, 100 keyboards — 2 vendors assigned
   - "Annual Office Stationery Supply" — 500 cartons A4 paper, 20 toner cartridges, 200 stationery kits — 2 vendors assigned
 - **4 quotations** submitted with pricing (all with 18% GST, delivery days)
+- **6 historical POs** (Jan–May 2026) with invoices added for reports trend chart — spread across all 3 vendors with varying amounts (₹9.5L–₹31L), 3 marked PAID + 3 PENDING_PAYMENT
 
 ### 7. Invoice Module (Backend + Frontend)
 - **Schema**: Added `paidAt` field to Invoice model, pushed to DB
@@ -167,9 +170,78 @@ Role is JWT-encoded. Every API route enforced with `requireRole([ ])` middleware
 - **PO List columns**: Replaced generic "Invoices" column with dedicated **Payment** (✓ Paid / Pending / —) and **Fulfillment** (✓ Fulfilled / In Progress / Draft) columns for better at-a-glance status tracking.
 - **PO Detail lifecycle**: Invoices are now clickable links → invoice detail. When invoice is PAID, "Mark as Fulfilled" button appears to complete the PO lifecycle.
 
+### 9. Activity Logs Module (Backend + Frontend)
+- **Backend** (4 files):
+  - `backend/src/repositories/activityLog.repository.ts` — list (action type filter, pagination), getById with actor includes
+  - `backend/src/services/activityLog.service.ts` — thin service layer, delegates to repo, returns "not found" error
+  - `backend/src/controllers/activityLog.controller.ts` — list with pagination/filter query params, detail by ID
+  - `backend/src/routes/activityLog.routes.ts` — `GET /`, `GET /:id`, guarded by ADMIN/OFFICER/MANAGER roles
+  - `backend/src/index.ts` — mounted at `/api/v1/activity-logs`
+- **Frontend** (2 files):
+  - `frontend/services/activityLog.ts` — `getActivityLogsList()` + `getActivityLogDetail()` with actionType filter
+  - `frontend/app/(dashboard)/activity-logs/page.tsx` — timeline view with action-type filter tabs (ALL/USER/VENDOR/RFQ/QUOTATION/APPROVAL/PO/INVOICE/SYSTEM), per-type color-coded icons, pagination, actor name + role display, entity reference, **clickable rows → detail modal**
+- **Design**: Each log entry has a colored action type badge + icon, clickable to open a full detail modal with actor info, full timestamp, entity refs, and immutability notice.
+- **Role-Based Access**: ADMIN sees ALL action types. MANAGER sees APPROVAL/PO/RFQ/QUOTATION/INVOICE. OFFICER sees RFQ/QUOTATION/PO/INVOICE/VENDOR. VENDOR sees only their own activity (actorId = userId) filtered to RFQ/PO/INVOICE/QUOTATION/SYSTEM. VENDOR role added to route guard + sidebar.
+
+### 10. Dashboard Live Data (Backend + Frontend)
+- **Backend** (3 files):
+  - `backend/src/services/dashboard.service.ts` — queries real DB counts per role (admin: pending accounts, active users, activity logs; officer: active RFQs, registered vendors, pending approvals, PO spend; manager: pending sign-off, approved today, monthly spend; vendor: invited RFQs, submitted bids, unpaid invoices). Includes vendor profile resolution via userId.
+  - `backend/src/controllers/dashboard.controller.ts` — single `GET /metrics` handler, extracts userId from JWT
+  - `backend/src/routes/dashboard.routes.ts` — `GET /metrics`, authenticated only
+  - `backend/src/index.ts` — replaced old inline fake handler with mounted dashboard router
+- **Frontend** (2 files):
+  - `frontend/services/dashboard.ts` — `getDashboardMetrics()` API call + TypeScript interface
+  - `frontend/app/(dashboard)/dashboard/page.tsx` — all 4 role dashboards now pull real data from API instead of hardcoded numbers. Loading skeleton shown during fetch. `MetricCard` extracted as reusable component.
+- **Design**: Same layout/styling preserved. Numbers are now live from DB. ₹ currency formatting for monetary values.
+
+### 12. Notifications & Email Module (Backend + Frontend)
+- **Backend** (5 files):
+  - `backend/src/lib/email.ts` — Resend email service with 4 email templates: invoice (with GST table), approval notification (assigned/approved/rejected), quotation notification (invited/selected/rejected), PO issued notification
+  - `backend/src/repositories/notification.repository.ts` — list (with type/isRead filters, pagination), getById, markAsRead, markAllAsRead, getUnreadCount
+  - `backend/src/services/notification.service.ts` — thin service layer, ownership verification before markAsRead
+  - `backend/src/controllers/notification.controller.ts` — 4 endpoints: list, unread-count, markAsRead, markAllAsRead
+  - `backend/src/routes/notification.routes.ts` — `GET /`, `GET /unread-count`, `PATCH /:id/read`, `POST /read-all` — authenticated only, all roles
+  - `backend/src/index.ts` — mounted at `/api/v1/notifications`
+- **Email wiring** (4 service files modified):
+  - `backend/src/services/rfq.service.ts:publishRfq()` — sends "invited" email to each assigned vendor
+  - `backend/src/services/quotation.service.ts:selectQuotation()` — sends approval notification email to L1 manager
+  - `backend/src/services/approval.service.ts:approveApproval()` — L1→L2 email notification + L2→officer approval notification + vendor PO email
+  - `backend/src/services/approval.service.ts:rejectApproval()` — email officer about rejection
+  - `backend/src/services/invoice.service.ts:createInvoiceFromPo()` — vendor notification + full invoice email with GST breakdown
+  - `backend/src/services/invoice.service.ts:markInvoiceAsPaid()` — in-app notification to officer who created the PO
+- **Frontend** (4 files):
+  - `frontend/services/notification.ts` — 4 API calls + TypeScript types
+  - `frontend/components/Topbar.tsx` — bell icon with live unread count badge, polling (30s interval), dropdown panel showing latest 5 unread notifications with mark-all-read + view-all links
+  - `frontend/app/(dashboard)/notifications/page.tsx` — full notification list page with type badges (color-coded), read/unread indicator, pagination, refresh + mark-all-as-read buttons
+  - `frontend/components/Sidebar.tsx` — "Notifications" nav item for all roles
+  - `frontend/middleware.ts` — `/notifications` added to protected paths
+
+### Email Use Cases (Resend)
+
+| Event | Email | Recipient | Template |
+|-------|-------|-----------|----------|
+| RFQ Published/Sent | Invitation with RFQ title | Assigned Vendors | `sendQuotationNotification(type: 'invited')` |
+| Quotation Selected → L1 Approval | Approval request with RFQ title | L1 Manager | `sendApprovalNotification(type: 'assigned')` |
+| L1 Approved → L2 Duty | Approval request notification | L2 Manager | `sendApprovalNotification(type: 'assigned')` |
+| L2 Approved → PO Generated | PO issued notification | Vendor | `sendPoNotification()` |
+| L2 Approved → Officer Notified | Approval confirmation | Officer | `sendApprovalNotification(type: 'approved')` |
+| Approval Rejected | Rejection notice with level | Officer | `sendApprovalNotification(type: 'rejected')` |
+| Invoice Generated | Full invoice with GST table breakdown | Vendor | `sendInvoiceEmail()` |
+- **Backend** (4 files):
+  - `backend/src/repositories/report.repository.ts` — aggregate queries with optional month filter: overview (total spend, PO count, fulfillment rate, overdue invoices, active vendors, avg PO value, pending approvals, RFQ count), spend trend (6 months leading to selected month), spend by vendor (top vendors by spend with PO count), CSV export
+  - `backend/src/services/report.service.ts` — role-gated data (VENDOR role gets empty/null data for sensitive reports)
+  - `backend/src/controllers/report.controller.ts` — 4 endpoints: overview, spend-trend, spend-by-vendor, CSV export with `?month=YYYY-MM` query param support
+  - `backend/src/routes/report.routes.ts` — VENDOR can access overview only; ADMIN/OFFICER/MANAGER access all including CSV
+  - `backend/src/index.ts` — mounted at `/api/v1/reports`
+- **Frontend** (2 files):
+  - `frontend/services/report.ts` — 3 API calls with optional `month` param + TypeScript interfaces
+  - `frontend/app/(dashboard)/reports/page.tsx` — 6 KPI cards (Total Spend, Total POs, Active Vendors, Total RFQs, PO Fulfillment %, Overdue Invoices) with Lucide icons, Spend by Category section with horizontal purple progress bars, Top Vendors table, Monthly Trend bar chart (recharts), month selector dropdown (Jan–Jun 2026), CSV Export button
+- **Fix**: Month selector wasn't filtering — seed POs were in 2026 but dropdown had 2025 months. Updated to 2026. Month selector now re-fetches backend data.
+- **Seed enhancement**: Added 6 historical POs (Jan–May 2026, ₹9.5L–₹31L, all 3 vendors) with invoices so trend chart shows meaningful bars.
+
 ---
 
-## Database: 13 Tables
+## Database: 14 Tables
 
 | Table | Purpose |
 |-------|---------|
@@ -203,10 +275,10 @@ Role is JWT-encoded. Every API route enforced with `requireRole([ ])` middleware
 | Purchase Orders | `/api/v1/purchase-orders/*` | ✅ |
 | Invoices | `/api/v1/invoices/*` | ✅ |
 | Admin (users, activate, approval-level) | `/api/v1/admin/*` | ✅ |
-| Dashboard | `/api/v1/dashboard/*` | ❌ |
-| Activity Logs | `/api/v1/activity-logs/*` | ❌ |
-| Reports | `/api/v1/reports/*` | ❌ |
-| Notifications | `/api/v1/notifications/*` | ❌ |
+| Dashboard (live metrics) | `/api/v1/dashboard/*` | ✅ |
+| Activity Logs | `/api/v1/activity-logs/*` | ✅ |
+| Reports (overview, spend trend, vendor spend, CSV export) | `/api/v1/reports/*` | ✅ |
+| Notifications (in-app + email) | `/api/v1/notifications/*` | ✅ |
 
 ---
 

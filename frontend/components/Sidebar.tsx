@@ -13,7 +13,8 @@ import {
   History, 
   BarChart3,
   LogOut,
-  FolderOpen
+  FolderOpen,
+  Bell
 } from 'lucide-react';
 
 export default function Sidebar() {
@@ -78,7 +79,13 @@ export default function Sidebar() {
       label: 'Activity Logs',
       href: '/activity-logs',
       icon: History,
-      roles: ['ADMIN', 'OFFICER', 'MANAGER']
+      roles: ['ADMIN', 'OFFICER', 'MANAGER', 'VENDOR']
+    },
+    {
+      label: 'Notifications',
+      href: '/notifications',
+      icon: Bell,
+      roles: ['ADMIN', 'OFFICER', 'MANAGER', 'VENDOR']
     },
     {
       label: 'Reports',
@@ -126,19 +133,38 @@ export default function Sidebar() {
       </div>
 
       {/* User profile details & Logout */}
-      <div className="p-4 border-t border-[#e5e5e5] space-y-3">
-        <div className="px-4">
-          <p className="text-[10px] text-[#6b7280] font-semibold uppercase tracking-wider">Active Role</p>
-          <div className="flex items-center space-x-1.5">
-            <span className="w-2 h-2 rounded-full bg-green-500"></span>
-            <span className="text-xs font-bold text-[#714B67] uppercase">{role}</span>
+      <div className="p-4 border-t border-[#e5e5e5] flex flex-col gap-3">
+        {/* Profile Card */}
+        <div className="p-3 bg-[#f8f9fa] border border-[#e5e5e5] rounded-xl flex flex-col gap-2.5">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-[#714B67]/10 flex items-center justify-center overflow-hidden flex-shrink-0 border border-[#714B67]/20">
+              {user.profilePhoto ? (
+                <img src={user.profilePhoto} alt="" className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-sm font-bold text-[#714B67]">
+                  {((user.firstName?.charAt(0) || '') + (user.lastName?.charAt(0) || '')).toUpperCase() || 'U'}
+                </span>
+              )}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-bold text-[#212529] truncate">{user.name}</p>
+              <p className="text-xs text-[#6b7280] truncate">{user.email}</p>
+            </div>
           </div>
-          <p className="text-sm font-bold text-[#212529] truncate mt-1">{user.name}</p>
-          <p className="text-xs text-[#6b7280] truncate">{user.email}</p>
+
+          <div className="flex items-center justify-between pt-2 border-t border-[#e5e5e5]/60">
+            <span className="text-[10px] text-[#6b7280] font-semibold uppercase tracking-wider">Active Role</span>
+            <div className="flex items-center space-x-1.5 bg-[#714B67]/10 px-2 py-0.5 rounded-full">
+              <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span>
+              <span className="text-[10px] font-bold text-[#714B67] uppercase tracking-wider">{role}</span>
+            </div>
+          </div>
         </div>
+
+        {/* Sign Out Button */}
         <button
           onClick={logout}
-          className="w-full flex items-center space-x-3 px-4 py-2.5 text-red-600 hover:bg-red-50 rounded-[6px] font-semibold text-sm transition-all"
+          className="w-full flex items-center justify-center space-x-2 px-4 py-2 text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100/80 border border-red-100/80 rounded-lg font-semibold text-sm transition-all duration-200"
         >
           <LogOut className="w-4 h-4" />
           <span>Sign Out</span>
