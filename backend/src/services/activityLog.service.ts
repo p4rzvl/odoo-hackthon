@@ -12,7 +12,7 @@ const roleAllowedTypes: Record<Role, LogActionType[]> = {
 export const listActivityLogs = async (filters: {
   role: Role;
   userId: number;
-  actionType?: string;
+  actionTypes?: string;
   page: number;
   limit: number;
 }) => {
@@ -20,8 +20,8 @@ export const listActivityLogs = async (filters: {
 
   return activityLogRepository.listActivityLogs({
     allowedActionTypes: allowed,
-    actorId: filters.role === 'VENDOR' ? filters.userId : undefined,
-    actionType: filters.actionType,
+    actorId: filters.role !== 'ADMIN' ? filters.userId : undefined,
+    actionTypes: filters.actionTypes,
     page: filters.page,
     limit: filters.limit
   });

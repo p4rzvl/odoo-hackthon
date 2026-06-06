@@ -152,7 +152,8 @@ export const login = async (req: Request, res: Response): Promise<void> => {
         lastName: user.lastName, 
         role: user.role,
         phone: user.phone,
-        country: user.country
+        country: user.country,
+        profilePhoto: user.profilePhoto
       }
     });
   } catch (error: any) {
@@ -257,7 +258,8 @@ export const me = async (req: Request, res: Response): Promise<void> => {
         role: true,
         phone: true,
         country: true,
-        isActive: true
+        isActive: true,
+        profilePhoto: true
       }
     });
 

@@ -13,7 +13,11 @@ import {
   Plus,
   ArrowRight,
   ShieldCheck,
-  TrendingUp
+  TrendingUp,
+  Activity,
+  Database,
+  Clock,
+  Bell
 } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
@@ -26,6 +30,7 @@ export default function DashboardPage() {
   const { user } = useAuth();
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
   const [loading, setLoading] = useState(true);
+  const [health, setHealth] = useState<{ uptime: number; database: { status: string }; timestamp: string } | null>(null);
 
   useEffect(() => {
     const fetchMetrics = async () => {
@@ -42,7 +47,15 @@ export default function DashboardPage() {
         setLoading(false);
       }
     };
+    const fetchHealth = async () => {
+      try {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api'}/health`);
+        const data = await res.json();
+        setHealth(data);
+      } catch {}
+    };
     fetchMetrics();
+    fetchHealth();
   }, []);
 
   if (!user) return null;
@@ -66,18 +79,24 @@ export default function DashboardPage() {
                 value={`${metrics?.pendingAccounts ?? 0} Accounts`}
                 icon={AlertCircle}
                 bg="bg-amber-50" iconColor="text-amber-600"
+                tooltip="New user registrations awaiting admin activation"
+                href="/admin/users?status=PENDING"
               />
               <MetricCard
                 label="Active Users"
                 value={`${metrics?.activeUsers ?? 0} Users`}
                 icon={Users}
                 bg="bg-purple-50" iconColor="text-[#714B67]"
+                tooltip="Currently active platform users across all roles"
+                href="/admin/users"
               />
               <MetricCard
                 label="Audit Operations"
                 value={`${metrics?.totalActivityLogs ?? 0} Logs`}
                 icon={ShieldCheck}
                 bg="bg-blue-50" iconColor="text-blue-600"
+                tooltip="Total immutable activity log entries recorded"
+                href="/activity-logs"
               />
             </div>
 
@@ -94,8 +113,15 @@ export default function DashboardPage() {
                   <ShieldCheck className="w-4 h-4 text-[#6b7280]" />
                   <span>View Security Audits</span>
                 </Link>
+                <Link href="/notifications"
+                  className="flex items-center space-x-2 px-4 py-2.5 bg-[#f8f9fa] border border-[#e5e5e5] hover:bg-[#e5e5e5]/45 text-[#212529] text-xs font-semibold rounded-[6px] transition-all">
+                  <Bell className="w-4 h-4 text-[#6b7280]" />
+                  <span>View Notifications</span>
+                </Link>
               </div>
             </div>
+
+            {health && <SystemHealth health={health} />}
           </div>
         );
 
@@ -115,10 +141,10 @@ export default function DashboardPage() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-              <MetricCard label="Active RFQs" value={`${metrics?.activeRfqs ?? 0} Active`} icon={FolderOpen} bg="bg-purple-50" iconColor="text-[#714B67]" />
-              <MetricCard label="Registered Vendors" value={`${metrics?.registeredVendors ?? 0} Profiles`} icon={Users} bg="bg-blue-50" iconColor="text-blue-600" />
-              <MetricCard label="Pending Approvals" value={`${metrics?.pendingApprovals ?? 0} Items`} icon={CheckSquare} bg="bg-amber-50" iconColor="text-amber-600" />
-              <MetricCard label="Total PO Spend" value={formatCurrency(metrics?.totalPoSpend ?? 0)} icon={DollarSign} bg="bg-emerald-50" iconColor="text-emerald-600" />
+              <MetricCard label="Active RFQs" value={`${metrics?.activeRfqs ?? 0} Active`} icon={FolderOpen} bg="bg-purple-50" iconColor="text-[#714B67]" tooltip="Currently published or draft RFQs awaiting vendor response" href="/rfqs" />
+              <MetricCard label="Registered Vendors" value={`${metrics?.registeredVendors ?? 0} Profiles`} icon={Users} bg="bg-blue-50" iconColor="text-blue-600" tooltip="Total active vendor profiles registered on the platform" href="/vendors" />
+              <MetricCard label="Pending Approvals" value={`${metrics?.pendingApprovals ?? 0} Items`} icon={CheckSquare} bg="bg-amber-50" iconColor="text-amber-600" tooltip="Quotations awaiting L1/L2 manager approval" href="/approvals" />
+              <MetricCard label="Total PO Spend" value={formatCurrency(metrics?.totalPoSpend ?? 0)} icon={DollarSign} bg="bg-emerald-50" iconColor="text-emerald-600" tooltip="Total value of all purchase orders issued" href="/purchase-orders" />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -155,9 +181,9 @@ export default function DashboardPage() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <MetricCard label="Invited RFQs" value={`${metrics?.invitedRfqs ?? 0} Invitations`} icon={FolderOpen} bg="bg-purple-50" iconColor="text-[#714B67]" />
-              <MetricCard label="Submitted Bids" value={`${metrics?.submittedBids ?? 0} Quotations`} icon={FileText} bg="bg-blue-50" iconColor="text-blue-600" />
-              <MetricCard label="Unpaid Invoices" value={formatCurrency(metrics?.unpaidInvoices ?? 0)} icon={AlertCircle} bg="bg-amber-50" iconColor="text-amber-600" />
+              <MetricCard label="Invited RFQs" value={`${metrics?.invitedRfqs ?? 0} Invitations`} icon={FolderOpen} bg="bg-purple-50" iconColor="text-[#714B67]" tooltip="RFQs where you have been invited to submit a bid" href="/rfqs" />
+              <MetricCard label="Submitted Bids" value={`${metrics?.submittedBids ?? 0} Quotations`} icon={FileText} bg="bg-blue-50" iconColor="text-blue-600" tooltip="Quotations you have submitted across all RFQs" href="/quotations" />
+              <MetricCard label="Unpaid Invoices" value={formatCurrency(metrics?.unpaidInvoices ?? 0)} icon={AlertCircle} bg="bg-amber-50" iconColor="text-amber-600" tooltip="Total outstanding invoice amount pending payment" href="/invoices?status=PENDING_PAYMENT" />
             </div>
 
             <div className="bg-white p-6 rounded-[8px] border border-[#e5e5e5] shadow-sm">
@@ -186,9 +212,9 @@ export default function DashboardPage() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <MetricCard label="Pending My Sign-Off" value={`${metrics?.pendingSignOff ?? 0} Items`} icon={CheckSquare} bg="bg-amber-50" iconColor="text-amber-600" />
-              <MetricCard label="Approved Today" value={`${metrics?.approvedToday ?? 0} POs`} icon={TrendingUp} bg="bg-emerald-50" iconColor="text-emerald-600" />
-              <MetricCard label="Monthly Spend Authorized" value={formatCurrency(metrics?.monthlySpendAuthorized ?? 0)} icon={DollarSign} bg="bg-purple-50" iconColor="text-[#714B67]" />
+              <MetricCard label="Pending My Sign-Off" value={`${metrics?.pendingSignOff ?? 0} Items`} icon={CheckSquare} bg="bg-amber-50" iconColor="text-amber-600" tooltip="Items awaiting your L1 or L2 approval decision" href="/approvals" />
+              <MetricCard label="Approved Today" value={`${metrics?.approvedToday ?? 0} POs`} icon={TrendingUp} bg="bg-emerald-50" iconColor="text-emerald-600" tooltip="Purchase orders approved today across both levels" href="/purchase-orders" />
+              <MetricCard label="Monthly Spend Authorized" value={formatCurrency(metrics?.monthlySpendAuthorized ?? 0)} icon={DollarSign} bg="bg-purple-50" iconColor="text-[#714B67]" tooltip="Total PO value approved this month" href="/reports" />
             </div>
 
             <div className="bg-white p-6 rounded-[8px] border border-[#e5e5e5] shadow-sm">
@@ -205,6 +231,7 @@ export default function DashboardPage() {
                 </Link>
               </div>
             </div>
+
           </div>
         );
 
@@ -233,21 +260,90 @@ function LoadingSkeleton() {
   );
 }
 
-function MetricCard({ label, value, icon: Icon, bg, iconColor }: {
+function MetricCard({ label, value, icon: Icon, bg, iconColor, tooltip, href }: {
   label: string;
   value: string;
   icon: any;
   bg: string;
   iconColor: string;
+  tooltip?: string;
+  href?: string;
 }) {
-  return (
-    <div className="bg-white p-6 rounded-[8px] border border-[#e5e5e5] shadow-sm flex items-center justify-between">
+  const content = (
+    <div className={`bg-white p-6 rounded-[8px] border border-[#e5e5e5] shadow-sm flex items-center justify-between ${href ? 'cursor-pointer hover:shadow-md hover:border-[#714B67]/30 transition-all group' : ''} relative`}>
       <div>
         <p className="text-xs font-semibold text-[#6b7280] uppercase tracking-wider">{label}</p>
         <p className="text-2xl font-bold text-[#212529] mt-2">{value}</p>
       </div>
       <div className={`p-3 ${bg} ${iconColor} rounded-lg`}>
         <Icon className="w-6 h-6" />
+      </div>
+      {tooltip && (
+        <div className="absolute -top-1 left-1/2 -translate-x-1/2 -translate-y-full opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+          <div className="bg-[#212529] text-white text-[10px] px-2.5 py-1.5 rounded-[4px] whitespace-nowrap shadow-lg">
+            {tooltip}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  if (href) {
+    return <Link href={href}>{content}</Link>;
+  }
+  return content;
+}
+
+function formatUptime(seconds: number) {
+  const d = Math.floor(seconds / 86400);
+  const h = Math.floor((seconds % 86400) / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const parts = [];
+  if (d > 0) parts.push(`${d}d`);
+  if (h > 0) parts.push(`${h}h`);
+  parts.push(`${m}m`);
+  return parts.join(' ');
+}
+
+function SystemHealth({ health }: { health: { uptime: number; database: { status: string }; timestamp: string } }) {
+  return (
+    <div className="bg-white p-6 rounded-[8px] border border-[#e5e5e5] shadow-sm">
+      <div className="flex items-center gap-2 mb-4">
+        <Activity className="w-4 h-4 text-[#714B67]" />
+        <h3 className="text-sm font-bold text-[#212529]">System Health</h3>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="flex items-center gap-3 p-3 bg-[#f8f9fa] rounded-[6px]">
+          <div className="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center">
+            <Database className="w-4 h-4 text-emerald-600" />
+          </div>
+          <div>
+            <p className="text-[10px] font-bold uppercase text-[#6b7280] tracking-wider">Database</p>
+            <p className={`text-xs font-bold ${health.database.status === 'connected' ? 'text-emerald-600' : 'text-red-600'}`}>
+              {health.database.status === 'connected' ? 'Connected' : 'Disconnected'}
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3 p-3 bg-[#f8f9fa] rounded-[6px]">
+          <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center">
+            <Clock className="w-4 h-4 text-blue-600" />
+          </div>
+          <div>
+            <p className="text-[10px] font-bold uppercase text-[#6b7280] tracking-wider">Uptime</p>
+            <p className="text-xs font-bold text-[#212529]">{formatUptime(health.uptime)}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3 p-3 bg-[#f8f9fa] rounded-[6px]">
+          <div className="w-8 h-8 rounded-full bg-purple-50 flex items-center justify-center">
+            <Activity className="w-4 h-4 text-[#714B67]" />
+          </div>
+          <div>
+            <p className="text-[10px] font-bold uppercase text-[#6b7280] tracking-wider">Server</p>
+            <p className="text-xs font-bold text-[#212529]">
+              {new Date(health.timestamp).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   );

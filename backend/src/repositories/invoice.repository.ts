@@ -79,13 +79,12 @@ export const getInvoiceById = async (id: number) => {
       purchaseOrder: {
         select: {
           id: true,
-          createdById: true,
           poNumber: true,
           totalAmount: true,
           status: true,
           quotation: {
             include: {
-              rfq: { select: { id: true, title: true, category: true } },
+              rfq: { select: { id: true, title: true, category: true, creator: { select: { id: true } } } },
               items: {
                 include: { rfqLineItem: true }
               },

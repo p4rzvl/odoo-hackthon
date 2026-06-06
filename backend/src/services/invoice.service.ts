@@ -94,16 +94,19 @@ export const markInvoiceAsPaid = async (userId: number, invoiceId: number, paidR
     entityType: 'invoice'
   });
 
-  // In-app notification to the invoice creator or officer
-  await prisma.notification.create({
-    data: {
-      userId: invoice.purchaseOrder.createdById,
-      message: `Invoice ${invoice.invoiceNumber} (₹${invoice.grandTotal}) marked as PAID${paidRemarks ? ` — "${paidRemarks}"` : ''}`,
-      type: 'INVOICE',
-      relatedEntityId: invoiceId,
-      entityType: 'invoice'
-    }
-  });
+  // In-app notification to the RFQ creator
+  const rfqCreatorId = invoice.purchaseOrder.quotation?.rfq?.creator?.id;
+  if (rfqCreatorId) {
+    await prisma.notification.create({
+      data: {
+        userId: rfqCreatorId,
+        message: `Invoice ${invoice.invoiceNumber} (₹${invoice.grandTotal}) marked as PAID${paidRemarks ? ` — "${paidRemarks}"` : ''}`,
+        type: 'INVOICE',
+        relatedEntityId: invoiceId,
+        entityType: 'invoice'
+      }
+    });
+  }
 
   return updated;
 };

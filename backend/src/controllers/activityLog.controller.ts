@@ -12,7 +12,7 @@ export const listActivityLogs = async (req: Request, res: Response): Promise<voi
     const filters = {
       role: authReq.user.role as Role,
       userId: authReq.user.id,
-      actionType: req.query.actionType as string,
+      actionTypes: req.query.actionTypes as string || req.query.actionType as string || undefined,
       page: parseInt(req.query.page as string || '1', 10),
       limit: parseInt(req.query.limit as string || '20', 10)
     };

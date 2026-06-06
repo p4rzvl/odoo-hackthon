@@ -24,12 +24,12 @@ interface ApiResponse<T> {
 }
 
 export const getActivityLogsList = async (params?: {
-  actionType?: string;
+  actionTypes?: string;
   page?: number;
   limit?: number;
 }): Promise<ApiResponse<{ logs: ActivityLog[]; pagination: { total: number; page: number; limit: number; totalPages: number } }>> => {
   const search = new URLSearchParams();
-  if (params?.actionType) search.append('actionType', params.actionType);
+  if (params?.actionTypes) search.append('actionTypes', params.actionTypes);
   if (params?.page) search.append('page', String(params.page));
   if (params?.limit) search.append('limit', String(params.limit));
 

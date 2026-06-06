@@ -140,8 +140,21 @@ export default function Sidebar() {
             <span className="w-2 h-2 rounded-full bg-green-500"></span>
             <span className="text-xs font-bold text-[#714B67] uppercase">{role}</span>
           </div>
-          <p className="text-sm font-bold text-[#212529] truncate mt-1">{user.name}</p>
-          <p className="text-xs text-[#6b7280] truncate">{user.email}</p>
+          <div className="flex items-center gap-3 mt-2">
+            <div className="w-9 h-9 rounded-full bg-[#714B67]/10 flex items-center justify-center overflow-hidden flex-shrink-0">
+              {user.profilePhoto ? (
+                <img src={user.profilePhoto} alt="" className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-sm font-bold text-[#714B67]">
+                  {(user.firstName?.charAt(0) || '') + (user.lastName?.charAt(0) || '') || 'U'}
+                </span>
+              )}
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-bold text-[#212529] truncate">{user.name}</p>
+              <p className="text-xs text-[#6b7280] truncate">{user.email}</p>
+            </div>
+          </div>
         </div>
         <button
           onClick={logout}

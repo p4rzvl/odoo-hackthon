@@ -122,7 +122,7 @@ async function main() {
       userId: vendorUser1.id,
       companyName: 'TechMart India Pvt Ltd',
       gstNumber: 'GSTIN-27AABCU1234D1Z5',
-      category: 'IT Hardware',
+      category: 'IT Services',
       contactNumber: '+91999990001',
       address: '91 MG Road, Bengaluru, Karnataka 560001, India',
       status: VendorStatus.ACTIVE
@@ -134,7 +134,7 @@ async function main() {
       userId: vendorUser2.id,
       companyName: 'Global Office Supplies Inc.',
       gstNumber: 'GSTIN-US36DEFG5678H2Z9',
-      category: 'Office Supplies',
+      category: 'Raw Materials',
       contactNumber: '+14155550001',
       address: '200 Park Avenue, New York, NY 10001, USA',
       status: VendorStatus.ACTIVE
@@ -146,7 +146,7 @@ async function main() {
       userId: vendorUser3.id,
       companyName: 'IndustrieBedarf GmbH',
       gstNumber: 'GSTIN-DE12HIJK9012L3Z7',
-      category: 'Industrial Equipment',
+      category: 'Logistics',
       contactNumber: '+49305550001',
       address: 'Industriestrasse 50, 10115 Berlin, Germany',
       status: VendorStatus.ACTIVE
@@ -160,7 +160,7 @@ async function main() {
   const rfq1 = await prisma.rfq.create({
     data: {
       title: 'Office Laptops & Peripherals',
-      category: 'IT Hardware',
+      category: 'IT Services',
       description: 'We require 50 high-performance laptops, 30 external monitors, and 100 wireless keyboard-mouse combos for our new office expansion. All equipment must come with 3-year warranty and on-site support.',
       deadline: new Date('2026-07-15'),
       status: RfqStatus.PUBLISHED,
@@ -193,7 +193,7 @@ async function main() {
   const rfq2 = await prisma.rfq.create({
     data: {
       title: 'Annual Office Stationery Supply',
-      category: 'Office Supplies',
+      category: 'Raw Materials',
       description: 'Annual contract for office stationery including A4 paper, printer toner, and employee stationery kits. Quarterly delivery. Contract period: 12 months.',
       deadline: new Date('2026-06-30'),
       status: RfqStatus.PUBLISHED,
@@ -545,9 +545,9 @@ async function main() {
   console.log(`  • ${vendorUser3.email}   (VENDOR)   — vendor789`);
   console.log('');
   console.log('🏢 Vendors:');
-  console.log(`  • ${vendor1.companyName}  (IT Hardware, India)`);
-  console.log(`  • ${vendor2.companyName}  (Office Supplies, USA)`);
-  console.log(`  • ${vendor3.companyName}  (Industrial Equipment, Germany)`);
+  console.log(`  • ${vendor1.companyName}  (IT Services, India)`);
+  console.log(`  • ${vendor2.companyName}  (Raw Materials, USA)`);
+  console.log(`  • ${vendor3.companyName}  (Logistics, Germany)`);
   console.log('');
   console.log('📄 RFQs Published:');
   console.log(`  • "${rfq1.title}" — ${rfq1Items.length} line items, 2 vendors assigned`);

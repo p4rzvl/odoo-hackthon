@@ -1,9 +1,10 @@
 import prisma from '../lib/prisma';
 
 export const getDashboardMetrics = async (userId: number) => {
-  const pendingAccounts = await prisma.user.count({
-    where: { isActive: false, role: { not: 'ADMIN' } }
-  });
+  const pendingResult = await prisma.$queryRaw<[{ count: bigint }]>`
+    SELECT COUNT(*)::int as count FROM "User" WHERE "isActive" = false AND "createdAt" = "updatedAt" AND "role" != 'ADMIN'
+  `;
+  const pendingAccounts = Number(pendingResult[0].count);
 
   const activeUsers = await prisma.user.count({
     where: { isActive: true }

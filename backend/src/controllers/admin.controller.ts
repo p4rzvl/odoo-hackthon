@@ -15,7 +15,8 @@ export const listUsers = async (req: Request, res: Response): Promise<void> => {
         role: true,
         isActive: true,
         approvalLevel: true,
-        createdAt: true
+        createdAt: true,
+        updatedAt: true
       },
       orderBy: { id: 'asc' }
     });

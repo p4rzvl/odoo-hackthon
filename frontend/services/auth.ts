@@ -10,6 +10,7 @@ export interface User {
   role: string;
   phone?: string;
   country?: string;
+  profilePhoto?: string;
 }
 
 export interface AuthResponse {

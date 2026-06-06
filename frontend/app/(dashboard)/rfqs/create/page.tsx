@@ -315,8 +315,8 @@ export default function CreateRfqPage() {
                     onChange={e => setCategory(e.target.value)}
                     className="bg-[#f8f9fa] w-full px-3 py-2 rounded-[6px] text-xs outline-none border border-[#e5e5e5] focus:border-[#714B67] text-[#212529]"
                   >
-                    <option value="Raw Materials">Raw Materials</option>
                     <option value="Manufacturing">Manufacturing</option>
+                    <option value="Raw Materials">Raw Materials</option>
                     <option value="IT Services">IT Services</option>
                     <option value="Logistics">Logistics</option>
                     <option value="Consulting">Consulting</option>

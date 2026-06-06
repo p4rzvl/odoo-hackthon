@@ -4,11 +4,11 @@ import { LogActionType } from '@prisma/client';
 export const listActivityLogs = async (filters: {
   allowedActionTypes?: LogActionType[];
   actorId?: number;
-  actionType?: string;
+  actionTypes?: string;
   page: number;
   limit: number;
 }) => {
-  const { allowedActionTypes, actorId, actionType, page, limit } = filters;
+  const { allowedActionTypes, actorId, actionTypes, page, limit } = filters;
   const where: any = {};
 
   if (allowedActionTypes && allowedActionTypes.length > 0) {
@@ -19,8 +19,14 @@ export const listActivityLogs = async (filters: {
     where.actorId = actorId;
   }
 
-  if (actionType && (!allowedActionTypes || allowedActionTypes.includes(actionType as LogActionType))) {
-    where.actionType = actionType as LogActionType;
+  if (actionTypes) {
+    const types = actionTypes.split(',').map(t => t.trim()).filter(t => t) as LogActionType[];
+    const valid = allowedActionTypes
+      ? types.filter(t => allowedActionTypes.includes(t))
+      : types;
+    if (valid.length > 0 && (!allowedActionTypes || valid.some(t => allowedActionTypes.includes(t)))) {
+      where.actionType = { in: valid };
+    }
   }
 
   const [items, total] = await Promise.all([

@@ -1,7 +1,7 @@
 'use client';
 
 import { usePathname, useRouter } from 'next/navigation';
-import { Bell, Search, CheckCheck, ExternalLink } from 'lucide-react';
+import { Bell, CheckCheck, ExternalLink } from 'lucide-react';
 import { useEffect, useState, useRef } from 'react';
 import { getUnreadCount, getNotificationsList, markAllAsRead, markAsRead, type Notification } from '@/services/notification';
 
@@ -82,16 +82,6 @@ export default function Topbar() {
         {breadcrumbs}
       </div>
 
-      {/* Search bar */}
-      <div className="relative w-80">
-        <Search className="absolute left-3 top-2.5 w-4 h-4 text-[#8F8F8F]" />
-        <input
-          type="text"
-          placeholder="Search ERP records..."
-          className="bg-[#f8f9fa] w-full pl-9 pr-4 py-1.5 rounded-[6px] text-xs outline-none border border-transparent focus:border-[#e5e5e5] text-[#212529] transition-all"
-        />
-      </div>
-
       {/* Toolbar utilities */}
       <div className="flex items-center space-x-4 relative" ref={dropdownRef}>
         <button className="p-2 text-[#6b7280] hover:text-[#714B67] transition-all relative" onClick={openDropdown}>
@@ -153,9 +143,6 @@ export default function Topbar() {
           </div>
         )}
 
-        <span className="text-[10px] text-[#6b7280] bg-[#f8f9fa] border border-[#e5e5e5] px-3 py-1.5 rounded-full font-mono font-semibold">
-          v19.0.1.0.0
-        </span>
       </div>
     </header>
   );
