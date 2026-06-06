@@ -13,7 +13,8 @@ import {
   History, 
   BarChart3,
   LogOut,
-  FolderOpen
+  FolderOpen,
+  Bell
 } from 'lucide-react';
 
 export default function Sidebar() {
@@ -78,7 +79,13 @@ export default function Sidebar() {
       label: 'Activity Logs',
       href: '/activity-logs',
       icon: History,
-      roles: ['ADMIN', 'OFFICER', 'MANAGER']
+      roles: ['ADMIN', 'OFFICER', 'MANAGER', 'VENDOR']
+    },
+    {
+      label: 'Notifications',
+      href: '/notifications',
+      icon: Bell,
+      roles: ['ADMIN', 'OFFICER', 'MANAGER', 'VENDOR']
     },
     {
       label: 'Reports',

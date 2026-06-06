@@ -13,6 +13,10 @@ import approvalRouter from "./routes/approval.routes";
 import purchaseOrderRouter from "./routes/purchaseOrder.routes";
 import invoiceRouter from "./routes/invoice.routes";
 import adminRouter from "./routes/admin.routes";
+import activityLogRouter from "./routes/activityLog.routes";
+import dashboardRouter from "./routes/dashboard.routes";
+import reportRouter from "./routes/report.routes";
+import notificationRouter from "./routes/notification.routes";
 import { authenticateToken } from "./middleware/auth";
 import { AuthenticatedRequest } from "./types";
 
@@ -43,24 +47,10 @@ app.use("/api/v1/approvals", approvalRouter);
 app.use("/api/v1/purchase-orders", purchaseOrderRouter);
 app.use("/api/v1/invoices", invoiceRouter);
 app.use("/api/v1/admin", adminRouter);
-
-// Sample Protected Route
-app.get(
-  "/api/v1/dashboard/metrics",
-  authenticateToken,
-  (req: AuthenticatedRequest, res) => {
-    res.json({
-      success: true,
-      message: `Hello ${req.user?.firstName}, authorized session validated!`,
-      metrics: {
-        activeUsers: 142,
-        totalOrders: 320,
-        revenueUSD: 8540,
-        satisfactionRate: "98%",
-      },
-    });
-  },
-);
+app.use("/api/v1/activity-logs", activityLogRouter);
+app.use("/api/v1/dashboard", dashboardRouter);
+app.use("/api/v1/reports", reportRouter);
+app.use("/api/v1/notifications", notificationRouter);
 
 import { globalErrorHandler } from "./middleware/errorHandler";
 

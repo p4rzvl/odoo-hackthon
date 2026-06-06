@@ -5,6 +5,7 @@ import { Role } from '@prisma/client';
 import prisma from '../lib/prisma';
 import { RegisterInput, LoginInput } from '../validations/auth.validation';
 import { sendSuccess, sendError } from '../lib/response';
+import { sendNewUserNotificationToAdmin } from '../lib/email';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-key-for-development-change-in-production';
 const REFRESH_SECRET = process.env.REFRESH_SECRET || 'super-refresh-key-for-development';
@@ -57,6 +58,17 @@ export const register = async (req: Request, res: Response): Promise<void> => {
 
     // Do NOT issue tokens on registration — account is PENDING activation
     // Tokens are only issued after Admin activates the account and user logs in
+
+    // Notify all admins about the new registration
+    try {
+      const admins = await prisma.user.findMany({ where: { role: 'ADMIN', isActive: true }, select: { email: true, firstName: true } });
+      for (const admin of admins) {
+        await sendNewUserNotificationToAdmin(admin.email, user.email, `${user.firstName} ${user.lastName}`, user.role);
+      }
+    } catch (emailErr) {
+      // non-blocking — registration succeeds even if email fails
+      console.warn('[Email] Failed to notify admins about new user:', emailErr);
+    }
     return sendSuccess(res, {
       user: { 
         id: user.id, 

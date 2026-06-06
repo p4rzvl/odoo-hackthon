@@ -1,6 +1,7 @@
 import * as rfqRepository from '../repositories/rfq.repository';
 import prisma from '../lib/prisma';
 import { CreateRfqInput, UpdateRfqInput } from '../validations/rfq.validation';
+import { sendQuotationNotification } from '../lib/email';
 
 export const listRfqs = async (
   user: { id: number; role: string },
@@ -132,7 +133,7 @@ export const publishRfq = async (id: number, creatorId: number) => {
   // Update status in DB
   const updatedRfq = await rfqRepository.updateRfqStatus(id, 'PUBLISHED');
 
-  // Trigger notifications for all assigned vendors
+  // Trigger notifications and emails for all assigned vendors
   if (rfq.rfqVendors && rfq.rfqVendors.length > 0) {
     const notifications = rfq.rfqVendors.map(rv => ({
       userId: rv.vendor.userId,
@@ -144,6 +145,18 @@ export const publishRfq = async (id: number, creatorId: number) => {
     await prisma.notification.createMany({
       data: notifications
     });
+
+    // Email each vendor
+    for (const rv of rfq.rfqVendors) {
+      if (rv.vendor.user) {
+        await sendQuotationNotification(
+          rv.vendor.user.email,
+          `${rv.vendor.user.firstName} ${rv.vendor.user.lastName}`,
+          rfq.title,
+          'invited'
+        );
+      }
+    }
   }
 
   return updatedRfq;

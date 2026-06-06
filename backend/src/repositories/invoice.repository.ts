@@ -77,7 +77,12 @@ export const getInvoiceById = async (id: number) => {
     where: { id },
     include: {
       purchaseOrder: {
-        include: {
+        select: {
+          id: true,
+          createdById: true,
+          poNumber: true,
+          totalAmount: true,
+          status: true,
           quotation: {
             include: {
               rfq: { select: { id: true, title: true, category: true } },
@@ -128,7 +133,12 @@ export const getPurchaseOrderForInvoice = async (poId: number) => {
           items: { include: { rfqLineItem: true } }
         }
       },
-      vendor: { select: { id: true, companyName: true, gstNumber: true, address: true, contactNumber: true } },
+      vendor: {
+        select: {
+          id: true, companyName: true, gstNumber: true, address: true, contactNumber: true,
+          user: { select: { id: true, email: true, firstName: true, lastName: true } }
+        }
+      },
       invoices: {
         select: { id: true, invoiceNumber: true, grandTotal: true, status: true }
       }

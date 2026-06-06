@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import prisma from '../lib/prisma';
 import { sendSuccess, sendError } from '../lib/response';
 import { AuthenticatedRequest } from '../types';
+import { sendAccountActivatedEmail } from '../lib/email';
 
 export const listUsers = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -38,6 +39,16 @@ export const activateUser = async (req: Request, res: Response): Promise<void> =
       data: { isActive: !user.isActive },
       select: { id: true, email: true, firstName: true, lastName: true, role: true, isActive: true }
     });
+
+    // If activating, email the user
+    if (updated.isActive) {
+      try {
+        await sendAccountActivatedEmail(updated.email, `${updated.firstName} ${updated.lastName}`, updated.role);
+      } catch (emailErr) {
+        console.warn('[Email] Failed to notify user about activation:', emailErr);
+      }
+    }
+
     return sendSuccess(res, { user: updated }, 200);
   } catch (error: any) {
     console.error('Activate user failed:', error);

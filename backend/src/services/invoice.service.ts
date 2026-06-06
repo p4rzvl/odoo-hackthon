@@ -1,5 +1,7 @@
 import * as invoiceRepository from '../repositories/invoice.repository';
 import { logActivity } from '../lib/activityLogger';
+import { sendInvoiceEmail } from '../lib/email';
+import prisma from '../lib/prisma';
 
 export const createInvoiceFromPo = async (userId: number, poId: number, invoiceDate: Date, dueDate: Date) => {
   const po = await invoiceRepository.getPurchaseOrderForInvoice(poId);
@@ -39,6 +41,30 @@ export const createInvoiceFromPo = async (userId: number, poId: number, invoiceD
     entityType: 'invoice'
   });
 
+  // In-app notification for vendor
+  const vendorUser = po.vendor.user;
+  if (vendorUser) {
+    await prisma.notification.create({
+      data: {
+        userId: vendorUser.id,
+        message: `Invoice ${invoiceNumber} (₹${grandTotal}) generated for PO ${po.poNumber}`,
+        type: 'INVOICE',
+        relatedEntityId: invoice.id,
+        entityType: 'invoice'
+      }
+    });
+
+    // Email to vendor
+    await sendInvoiceEmail(
+      vendorUser.email,
+      `${vendorUser.firstName} ${vendorUser.lastName}`,
+      invoiceNumber,
+      po.poNumber,
+      grandTotal,
+      po.vendor.gstNumber
+    );
+  }
+
   return invoice;
 };
 
@@ -66,6 +92,17 @@ export const markInvoiceAsPaid = async (userId: number, invoiceId: number, paidR
     description: `Invoice ${invoice.invoiceNumber} marked as PAID${remarkLog}`,
     entityId: invoiceId,
     entityType: 'invoice'
+  });
+
+  // In-app notification to the invoice creator or officer
+  await prisma.notification.create({
+    data: {
+      userId: invoice.purchaseOrder.createdById,
+      message: `Invoice ${invoice.invoiceNumber} (₹${invoice.grandTotal}) marked as PAID${paidRemarks ? ` — "${paidRemarks}"` : ''}`,
+      type: 'INVOICE',
+      relatedEntityId: invoiceId,
+      entityType: 'invoice'
+    }
   });
 
   return updated;

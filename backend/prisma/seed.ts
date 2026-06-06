@@ -31,7 +31,7 @@ async function main() {
   // Wipe all data in dependency order
   await prisma.refreshToken.deleteMany({});
   await prisma.notification.deleteMany({});
-  await prisma.activityLog.deleteMany({});
+  await prisma.$executeRawUnsafe('TRUNCATE TABLE "ActivityLog" CASCADE');
   await prisma.invoice.deleteMany({});
   await prisma.purchaseOrder.deleteMany({});
   await prisma.approval.deleteMany({});
@@ -252,7 +252,7 @@ async function main() {
   const q2Tax = Math.round(q2Subtotal * 0.18 * 100) / 100;          // 963,000
   const q2Grand = Math.round((q2Subtotal + q2Tax) * 100) / 100;     // 6,313,000
 
-  await prisma.quotation.create({
+  const q2Record = await prisma.quotation.create({
     data: {
       rfqId: rfq1.id, vendorId: vendor2.id,
       gstPercent: 18, subtotal: q2Subtotal, taxAmount: q2Tax, grandTotal: q2Grand,
@@ -275,7 +275,7 @@ async function main() {
   const q3Tax = Math.round(q3Subtotal * 0.18 * 100) / 100;          // 241,200
   const q3Grand = Math.round((q3Subtotal + q3Tax) * 100) / 100;     // 1,581,200
 
-  await prisma.quotation.create({
+  const q3Record = await prisma.quotation.create({
     data: {
       rfqId: rfq2.id, vendorId: vendor2.id,
       gstPercent: 18, subtotal: q3Subtotal, taxAmount: q3Tax, grandTotal: q3Grand,
@@ -294,7 +294,7 @@ async function main() {
   const q4Tax = Math.round(q4Subtotal * 0.18 * 100) / 100;          // 218,700
   const q4Grand = Math.round((q4Subtotal + q4Tax) * 100) / 100;     // 1,433,700
 
-  await prisma.quotation.create({
+  const q4Record = await prisma.quotation.create({
     data: {
       rfqId: rfq2.id, vendorId: vendor3.id,
       gstPercent: 18, subtotal: q4Subtotal, taxAmount: q4Tax, grandTotal: q4Grand,
@@ -352,6 +352,75 @@ async function main() {
       updatedAt: new Date('2026-06-01T11:10:00.000Z'),
     },
   });
+
+  // ── Historical POs for reports trend (Jan–May 2026) ──
+
+  const poBase = [
+    { month: 0, day: 10, vendorId: vendor1.id, quotId: selectedQuotation.id, amount: 1800000, fn: 'PO-2026-0002', inv: 'INV-2026-0002', st: 1525424, paid: true },
+    { month: 1, day: 15, vendorId: vendor2.id, quotId: q2Record.id,         amount: 2200000, fn: 'PO-2026-0003', inv: 'INV-2026-0003', st: 1864407, paid: true },
+    { month: 2, day: 8,  vendorId: vendor1.id, quotId: selectedQuotation.id, amount: 950000,  fn: 'PO-2026-0004', inv: 'INV-2026-0004', st: 805085,  paid: false },
+    { month: 2, day: 22, vendorId: vendor3.id, quotId: q4Record.id,         amount: 1450000, fn: 'PO-2026-0005', inv: 'INV-2026-0005', st: 1228814, paid: true },
+    { month: 3, day: 5,  vendorId: vendor2.id, quotId: q3Record.id,         amount: 3100000, fn: 'PO-2026-0006', inv: 'INV-2026-0006', st: 2627119, paid: false },
+    { month: 4, day: 12, vendorId: vendor1.id, quotId: selectedQuotation.id, amount: 2700000, fn: 'PO-2026-0007', inv: 'INV-2026-0007', st: 2288136, paid: false },
+  ];
+
+  for (const p of poBase) {
+    const poDate = new Date(2026, p.month, p.day, 10, 0, 0);
+    const invDate = new Date(2026, p.month, p.day + 1, 0, 0, 0);
+    const dueDate = new Date(2026, p.month + 1, p.day, 0, 0, 0);
+    const cgst = Math.round(p.st * 0.09 * 100) / 100;
+    const sgst = Math.round(p.st * 0.09 * 100) / 100;
+    const grand = Math.round((p.st + cgst + sgst) * 100) / 100;
+
+    const histPo = await prisma.purchaseOrder.create({
+      data: {
+        poNumber: p.fn,
+        quotationId: p.quotId,
+        vendorId: p.vendorId,
+        totalAmount: p.amount,
+        status: p.paid ? PoStatus.FULFILLED : PoStatus.APPROVED,
+        createdAt: poDate,
+        updatedAt: poDate,
+      },
+    });
+
+    await prisma.invoice.create({
+      data: {
+        invoiceNumber: p.inv,
+        poId: histPo.id,
+        invoiceDate: invDate,
+        dueDate,
+        subtotal: p.st,
+        cgst,
+        sgst,
+        grandTotal: grand,
+        status: p.paid ? InvoiceStatus.PAID : InvoiceStatus.PENDING_PAYMENT,
+        paidAt: p.paid ? invDate : null,
+        paidRemarks: p.paid ? 'Bank transfer processed' : null,
+      },
+    });
+
+    await prisma.activityLog.createMany({
+      data: [
+        {
+          actorId: officer.id,
+          actionType: 'PO',
+          description: `Purchase order ${p.fn} created for vendor.`,
+          entityId: histPo.id,
+          entityType: 'purchase_order',
+          createdAt: poDate,
+        },
+        {
+          actorId: officer.id,
+          actionType: 'INVOICE',
+          description: `Invoice ${p.inv} generated from ${p.fn}.`,
+          entityId: histPo.id,
+          entityType: 'invoice',
+          createdAt: invDate,
+        },
+      ]
+    });
+  }
 
   const invoiceSubtotal = Number(selectedQuotation.subtotal);
   const invoiceCgst = Math.round(invoiceSubtotal * 0.09 * 100) / 100;
