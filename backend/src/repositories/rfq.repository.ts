@@ -36,30 +36,38 @@ export const listRfqs = async (filters: {
     }
   }
 
+  const include: any = {
+    creator: {
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true
+      }
+    },
+    rfqVendors: {
+      include: {
+        vendor: true
+      }
+    },
+    _count: {
+      select: {
+        lineItems: true,
+        quotations: true
+      }
+    }
+  };
+
+  if (vendorId) {
+    include.quotations = {
+      where: { vendorId }
+    };
+  }
+
   const [items, total] = await Promise.all([
     prisma.rfq.findMany({
       where,
-      include: {
-        creator: {
-          select: {
-            id: true,
-            email: true,
-            firstName: true,
-            lastName: true
-          }
-        },
-        rfqVendors: {
-          include: {
-            vendor: true
-          }
-        },
-        _count: {
-          select: {
-            lineItems: true,
-            quotations: true
-          }
-        }
-      },
+      include,
       orderBy: { createdAt: 'desc' },
       skip,
       take: limit

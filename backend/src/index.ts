@@ -8,6 +8,7 @@ import healthRouter from "./routes/health.routes";
 import authRouter from "./routes/auth.routes";
 import vendorRouter from "./routes/vendor.routes";
 import rfqRouter from "./routes/rfq.routes";
+import quotationRouter from "./routes/quotation.routes";
 import { authenticateToken } from "./middleware/auth";
 import { AuthenticatedRequest } from "./types";
 
@@ -33,6 +34,7 @@ app.use("/api", healthRouter);
 app.use("/api/v1/auth", authRouter);
 app.use("/api/v1/vendors", vendorRouter);
 app.use("/api/v1/rfqs", rfqRouter);
+app.use("/api/v1/quotations", quotationRouter);
 
 // Sample Protected Route
 app.get(

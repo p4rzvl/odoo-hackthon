@@ -134,7 +134,11 @@ export default function RfqsPage() {
                   <th className="p-4">RFQ Title</th>
                   <th className="p-4">Category</th>
                   <th className="p-4">Deadline</th>
-                  <th className="p-4">Supplier Invitations</th>
+                  {isOfficer ? (
+                    <th className="p-4">Supplier Invitations</th>
+                  ) : (
+                    <th className="p-4">My Bid Status</th>
+                  )}
                   <th className="p-4">Status</th>
                   <th className="p-4 text-right">Actions</th>
                 </tr>
@@ -162,14 +166,32 @@ export default function RfqsPage() {
                         <span>{new Date(rfq.deadline).toLocaleDateString()}</span>
                       </div>
                     </td>
-                    <td className="p-4">
-                      <div className="flex items-center">
-                        <Users className="w-3.5 h-3.5 text-slate-400 mr-1" />
-                        <span className="font-bold text-[#714B67]">
-                          {rfq.rfqVendors?.length || 0} Suppliers
-                        </span>
-                      </div>
-                    </td>
+                    {isOfficer ? (
+                      <td className="p-4">
+                        <div className="flex items-center">
+                          <Users className="w-3.5 h-3.5 text-slate-400 mr-1" />
+                          <span className="font-bold text-[#714B67]">
+                            {rfq.rfqVendors?.length || 0} Suppliers
+                          </span>
+                        </div>
+                      </td>
+                    ) : (
+                      <td className="p-4">
+                        {rfq.quotations && rfq.quotations.length > 0 ? (
+                          <span className={`px-2 py-0.5 rounded-[4px] text-[8px] font-extrabold uppercase border inline-block text-center min-w-[70px] ${
+                            rfq.quotations[0].status === 'DRAFT'
+                              ? 'bg-amber-50 text-amber-700 border-amber-200'
+                              : 'bg-green-50 text-green-700 border-green-200'
+                          }`}>
+                            {rfq.quotations[0].status}
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-slate-400 font-semibold italic">
+                            No offer yet
+                          </span>
+                        )}
+                      </td>
+                    )}
                     <td className="p-4">
                       <StatusBadge status={rfq.status} />
                     </td>

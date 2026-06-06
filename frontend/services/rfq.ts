@@ -42,6 +42,7 @@ export interface Rfq {
   lineItems: RfqLineItem[];
   rfqVendors: RfqVendor[];
   attachments?: RfqAttachment[];
+  quotations?: any[];
   _count?: {
     lineItems: number;
     quotations: number;

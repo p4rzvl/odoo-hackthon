@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { getRfqDetail, publishRfq, Rfq } from '../../../../services/rfq';
+import { getQuotationsList, Quotation } from '../../../../services/quotation';
 import { useAuth } from '../../../../context/AuthContext';
 import StatusBadge from '../../../../components/StatusBadge';
 import { 
@@ -31,6 +32,7 @@ export default function RfqDetailPage() {
   const [rfq, setRfq] = useState<Rfq | null>(null);
   const [loading, setLoading] = useState(true);
   const [publishing, setPublishing] = useState(false);
+  const [vendorQuote, setVendorQuote] = useState<Quotation | null>(null);
 
   const isOfficer = user?.role === 'OFFICER';
   const isVendor = user?.role === 'VENDOR';
@@ -41,6 +43,14 @@ export default function RfqDetailPage() {
       const res = await getRfqDetail(rfqId);
       if (res.success && res.data?.rfq) {
         setRfq(res.data.rfq);
+        
+        // Load active vendor's quote status
+        if (user?.role === 'VENDOR') {
+          const quoteRes = await getQuotationsList({ rfqId });
+          if (quoteRes.success && quoteRes.data?.quotations && quoteRes.data.quotations.length > 0) {
+            setVendorQuote(quoteRes.data.quotations[0]);
+          }
+        }
       } else {
         toast.error(res.error || 'Failed to retrieve RFQ details');
         router.push('/rfqs');
@@ -144,7 +154,13 @@ export default function RfqDetailPage() {
               className="flex items-center space-x-1.5 px-4 py-2 bg-[#714B67] hover:bg-[#9e7592] text-white text-xs font-semibold rounded-[6px] transition-all"
             >
               <PlusCircle className="w-4 h-4" />
-              <span>Submit Quotation Bid</span>
+              <span>
+                {vendorQuote 
+                  ? vendorQuote.status === 'DRAFT' 
+                    ? 'Resume Bidding Draft' 
+                    : 'View Submitted Bidding'
+                  : 'Submit Quotation Bid'}
+              </span>
             </Link>
           )}
         </div>
@@ -152,6 +168,44 @@ export default function RfqDetailPage() {
 
       {/* Main Info Card */}
       <div className="bg-white rounded-[12px] border border-[#e5e5e5] shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-6 space-y-6">
+        
+        {/* Vendor Quotation Status Banner */}
+        {isVendor && vendorQuote && (
+          <div className={`p-4 rounded-[8px] border flex items-center justify-between ${
+            vendorQuote.status === 'DRAFT'
+              ? 'bg-amber-50 border-amber-200 text-amber-900'
+              : 'bg-green-50/70 border-green-200 text-green-900'
+          }`}>
+            <div className="flex items-center space-x-3">
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs ${
+                vendorQuote.status === 'DRAFT' ? 'bg-amber-100' : 'bg-green-100'
+              }`}>
+                {vendorQuote.status === 'DRAFT' ? '✍️' : '✅'}
+              </div>
+              <div>
+                <div className="text-xs font-bold uppercase tracking-wider">
+                  Bidding Offer: {vendorQuote.status}
+                </div>
+                <div className="text-[10px] opacity-80 mt-0.5">
+                  {vendorQuote.status === 'DRAFT'
+                    ? 'You have saved a draft quotation. Your changes are private and not yet submitted to the Officer.'
+                    : `Your offer has been submitted. Value: INR ${Number(vendorQuote.grandTotal).toLocaleString()} (delivery: ${
+                        vendorQuote.items ? Math.max(...vendorQuote.items.map(i => i.deliveryDays)) : 0
+                      } days)`}
+                </div>
+              </div>
+            </div>
+            {vendorQuote.status === 'DRAFT' && (
+              <Link
+                href={`/quotations/submit/${rfq.id}`}
+                className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded text-[10px] font-bold uppercase tracking-wider transition-colors shrink-0"
+              >
+                Resume Draft
+              </Link>
+            )}
+          </div>
+        )}
+
         {/* RFQ Meta Title */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#e5e5e5] pb-4">
           <div className="space-y-1">

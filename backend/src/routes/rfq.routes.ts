@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { getRfqs, getRfqById, createRfq, updateRfq, publishRfq } from '../controllers/rfq.controller';
+import { selectQuotation } from '../controllers/quotation.controller';
 import { authenticateToken } from '../middleware/auth';
 import { requireRole } from '../middleware/roleGuard';
 import { validateBody } from '../middleware/validate';
@@ -89,6 +90,14 @@ router.post(
   authenticateToken, 
   requireRole(['ADMIN', 'OFFICER']), 
   publishRfq
+);
+
+// Select winning quotation bid for L1/L2 approval loop (Officers and Admins only)
+router.post(
+  '/:rfqId/select-vendor',
+  authenticateToken,
+  requireRole(['ADMIN', 'OFFICER']),
+  selectQuotation
 );
 
 export default router;
