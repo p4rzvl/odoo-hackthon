@@ -9,6 +9,10 @@ import authRouter from "./routes/auth.routes";
 import vendorRouter from "./routes/vendor.routes";
 import rfqRouter from "./routes/rfq.routes";
 import quotationRouter from "./routes/quotation.routes";
+import approvalRouter from "./routes/approval.routes";
+import purchaseOrderRouter from "./routes/purchaseOrder.routes";
+import invoiceRouter from "./routes/invoice.routes";
+import adminRouter from "./routes/admin.routes";
 import { authenticateToken } from "./middleware/auth";
 import { AuthenticatedRequest } from "./types";
 
@@ -35,6 +39,10 @@ app.use("/api/v1/auth", authRouter);
 app.use("/api/v1/vendors", vendorRouter);
 app.use("/api/v1/rfqs", rfqRouter);
 app.use("/api/v1/quotations", quotationRouter);
+app.use("/api/v1/approvals", approvalRouter);
+app.use("/api/v1/purchase-orders", purchaseOrderRouter);
+app.use("/api/v1/invoices", invoiceRouter);
+app.use("/api/v1/admin", adminRouter);
 
 // Sample Protected Route
 app.get(

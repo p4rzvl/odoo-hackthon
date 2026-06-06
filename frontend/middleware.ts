@@ -13,9 +13,11 @@ export function middleware(request: NextRequest) {
     '/quotations',
     '/approvals',
     '/invoices',
+    '/invoice-print',
     '/purchase-orders',
     '/activity-logs',
-    '/reports'
+    '/reports',
+    '/admin'
   ];
 
   const isProtected = protectedPaths.some(path => pathname.startsWith(path));
@@ -36,6 +38,7 @@ export const config = {
     '/quotations/:path*',
     '/approvals/:path*',
     '/invoices/:path*',
+    '/invoice-print/:path*',
     '/purchase-orders/:path*',
     '/activity-logs/:path*',
     '/reports/:path*',

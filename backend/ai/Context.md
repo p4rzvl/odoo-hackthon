@@ -64,6 +64,15 @@ src/
 - **New registrations default to `isActive: false` (PENDING)** — user cannot log in until Admin activates them
 - **No tokens are issued on registration** — user must wait for activation, then log in manually
 - **Admin accounts are created ONLY via `prisma/seed.ts`** seeding script
+- Seeded demo data should include:
+  - the 7 login accounts listed in the hackathon demo table
+  - active vendor profiles linked to vendor users
+  - sample RFQs with line items and vendor assignments
+  - submitted quotations for comparison
+  - one fully approved quotation
+  - one generated purchase order
+  - one generated invoice
+  - related notifications and activity logs
 
 ### Login Rules
 - Login checks `isActive === true` — if false, returns `403 Forbidden` with message `"Your account is pending activation by an Admin. Please wait for approval."`
@@ -248,4 +257,3 @@ ORG_GSTIN=              # Invoice bill-to GSTIN
 - `PUT /api/v1/rfqs/:id` — update RFQ details and sync items
 - `POST /api/v1/rfqs/:id/send` — publish RFQ (transitions status to PUBLISHED)
 - `POST /api/v1/rfqs/upload` — multipart file uploads to locally stored directories
-

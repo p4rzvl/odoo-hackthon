@@ -34,7 +34,7 @@ export default function CompareQuotationsPage() {
       try {
         const [rfqRes, quotesRes] = await Promise.all([
           getRfqDetail(rfqId),
-          getQuotationsList({ rfqId, status: 'SUBMITTED' })
+          getQuotationsList({ rfqId })
         ]);
 
         if (rfqRes.success && rfqRes.data?.rfq) {
@@ -46,7 +46,8 @@ export default function CompareQuotationsPage() {
         }
 
         if (quotesRes.success && quotesRes.data?.quotations) {
-          setQuotations(quotesRes.data.quotations);
+          const nonDrafts = quotesRes.data.quotations.filter((q: any) => q.status !== 'DRAFT');
+          setQuotations(nonDrafts);
         } else {
           toast.error(quotesRes.error || 'Failed to retrieve quotation bids');
         }
@@ -68,6 +69,8 @@ export default function CompareQuotationsPage() {
   const lowestTotal = quotations.length > 0 
     ? Math.min(...quotations.map(q => Number(q.grandTotal))) 
     : Infinity;
+
+  const hasSelectedBid = quotations.some(q => q.status === 'SELECTED');
 
   const handleSelectBid = async (quotationId: number) => {
     setSelectingId(quotationId);
@@ -145,13 +148,24 @@ export default function CompareQuotationsPage() {
                           isLowest ? 'bg-green-50/40' : ''
                         }`}
                       >
+                        {q.status === 'SELECTED' && (
+                          <span className="absolute top-2 left-2 bg-purple-100 text-[#714B67] text-[8px] font-extrabold uppercase px-1.5 py-0.5 rounded flex items-center gap-0.5">
+                            <CheckCircle2 className="w-2.5 h-2.5" />
+                            <span>Selected</span>
+                          </span>
+                        )}
+                        {q.status === 'REJECTED' && (
+                          <span className="absolute top-2 left-2 bg-slate-100 text-slate-600 text-[8px] font-extrabold uppercase px-1.5 py-0.5 rounded flex items-center gap-0.5">
+                            <span>Rejected</span>
+                          </span>
+                        )}
                         {isLowest && (
-                          <span className="absolute top-2 right-2 bg-green-100 text-green-800 text-[8px] font-extrabold uppercase px-2 py-0.5 rounded flex items-center gap-0.5">
-                            <Award className="w-3 h-3" />
+                          <span className="absolute top-2 right-2 bg-green-100 text-green-800 text-[8px] font-extrabold uppercase px-1.5 py-0.5 rounded flex items-center gap-0.5">
+                            <Award className="w-2.5 h-2.5" />
                             <span>L1 Cost</span>
                           </span>
                         )}
-                        <Building2 className="w-6 h-6 text-slate-400 mx-auto mb-1" />
+                        <Building2 className="w-6 h-6 text-slate-400 mx-auto mb-1 mt-2" />
                         <div className="text-xs font-bold text-[#212529] truncate max-w-[200px] mx-auto">
                           {q.vendor?.companyName}
                         </div>
@@ -245,11 +259,19 @@ export default function CompareQuotationsPage() {
                 </tr>
 
                 {/* Actions row */}
-                {rfq.status === 'PUBLISHED' && (
-                  <tr className="bg-white">
-                    <td className="p-4 font-bold border-r border-[#e5e5e5] text-slate-500">Decide Winner</td>
-                    {quotations.map(q => (
-                      <td key={q.id} className="p-4 text-center border-r border-[#e5e5e5]">
+                <tr className="bg-white border-t border-[#e5e5e5]">
+                  <td className="p-4 font-bold border-r border-[#e5e5e5] text-slate-500">Status / Selection</td>
+                  {quotations.map(q => (
+                    <td key={q.id} className="p-4 text-center border-r border-[#e5e5e5]">
+                      {q.status === 'SELECTED' ? (
+                        <span className="inline-flex items-center text-purple-700 font-bold bg-purple-50 px-2.5 py-1 rounded-full text-[11px] gap-1">
+                          <CheckCircle2 className="w-3.5 h-3.5" /> Selected Winner
+                        </span>
+                      ) : q.status === 'REJECTED' ? (
+                        <span className="inline-flex items-center text-slate-500 font-medium bg-slate-50 px-2.5 py-1 rounded-full text-[11px]">
+                          Rejected
+                        </span>
+                      ) : rfq.status === 'PUBLISHED' && !hasSelectedBid ? (
                         <button
                           type="button"
                           disabled={selectingId !== null}
@@ -265,10 +287,12 @@ export default function CompareQuotationsPage() {
                             </>
                           )}
                         </button>
-                      </td>
-                    ))}
-                  </tr>
-                )}
+                      ) : (
+                        <span className="text-slate-400 italic">Submitted</span>
+                      )}
+                    </td>
+                  ))}
+                </tr>
               </tbody>
             </table>
           </div>

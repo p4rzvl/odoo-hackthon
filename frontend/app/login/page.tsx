@@ -8,11 +8,12 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { useAuth } from '../../context/AuthContext';
 import { loginSchema, LoginInput } from '../../validations/auth.validation';
-import { Mail, Lock, Loader2, ArrowRight, User } from 'lucide-react';
+import { Mail, Lock, Loader2, ArrowRight, User, Eye, EyeOff } from 'lucide-react';
 
 export default function LoginPage() {
   const { login, user } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const searchParams = useSearchParams();
   const emailParam = searchParams.get('email') || '';
   const router = useRouter();
@@ -106,15 +107,22 @@ export default function LoginPage() {
                 <Lock className="w-4 h-4" />
               </span>
               <input
-                type="password"
+                type={showPassword ? 'text' : 'password'}
                 placeholder="••••••••"
                 {...formRegister('password')}
-                className={`w-full pl-9 pr-3 py-2 bg-[#f8f9fa] border rounded-[6px] text-sm outline-none transition-all ${
+                className={`w-full pl-9 pr-10 py-2 bg-[#f8f9fa] border rounded-[6px] text-sm outline-none transition-all ${
                   errors.password
                     ? 'border-red-400 focus:ring-1 focus:ring-red-400'
                     : 'border-[#e5e5e5] focus:border-[#714B67] focus:ring-1 focus:ring-[#714B67]'
                 }`}
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute inset-y-0 right-0 pr-3 flex items-center text-[#8F8F8F] hover:text-[#714B67] transition-all"
+              >
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
             </div>
             {errors.password && <p className="text-xs text-[#dc2626] font-semibold">{errors.password.message}</p>}
           </div>

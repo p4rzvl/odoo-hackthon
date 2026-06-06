@@ -179,15 +179,16 @@ export const selectQuotationAndCreateApprovals = async (rfqId: number, quotation
       data: { status: 'REJECTED' }
     });
 
-    // 3. Find first two managers by ID (for L1 and L2 Approvals)
-    const managers = await tx.user.findMany({
-      where: { role: 'MANAGER', isActive: true },
-      orderBy: { id: 'asc' },
-      take: 2
+    // 3. Find managers by approvalLevel (for L1 and L2 Approvals)
+    const l1Manager = await tx.user.findFirst({
+      where: { role: 'MANAGER', isActive: true, approvalLevel: 1 }
+    });
+    const l2Manager = await tx.user.findFirst({
+      where: { role: 'MANAGER', isActive: true, approvalLevel: 2 }
     });
 
-    if (managers.length < 2) {
-      throw new Error('Approval workflow requires at least 2 active Managers configured in the system.');
+    if (!l1Manager || !l2Manager) {
+      throw new Error('Approval workflow requires 2 active Managers assigned as L1 (approvalLevel: 1) and L2 (approvalLevel: 2). Ask an Admin to configure this.');
     }
 
     // 4. Create Approval records
@@ -195,7 +196,7 @@ export const selectQuotationAndCreateApprovals = async (rfqId: number, quotation
     await tx.approval.create({
       data: {
         quotationId,
-        approverId: managers[0].id,
+        approverId: l1Manager.id,
         level: 1,
         status: 'PENDING'
       }
@@ -205,7 +206,7 @@ export const selectQuotationAndCreateApprovals = async (rfqId: number, quotation
     await tx.approval.create({
       data: {
         quotationId,
-        approverId: managers[1].id,
+        approverId: l2Manager.id,
         level: 2,
         status: 'WAITING'
       }

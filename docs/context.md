@@ -16,12 +16,13 @@ VendorBridge is a full-stack Procurement & Vendor Management ERP built for the O
 2. Assigned vendors receive notification → submit quotations
 3. Officer opens Quotation Comparison screen → selects best vendor
 4. Approval workflow triggered → L1 Manager notified
-5. L1 approves → L2 approver notified → L2 approves
-6. PO auto-generated (PO-YYYY-NNNN format)
-7. Invoice generated from PO with CGST/SGST breakdown
-8. Invoice downloaded as PDF / printed / emailed to vendor
-9. Officer marks invoice as paid
-10. ALL steps logged immutably in activity_logs
+5. L1 approves (with remarks) → L2 notified (sees L1 remarks) → L2 approves (with own remarks)
+6. PO auto-generated (PO-YYYY-NNNN format) with status APPROVED
+7. Officer views PO → clicks "Generate Invoice"
+8. Invoice generated from PO with CGST(9%)/SGST(9%) breakdown
+9. Invoice downloaded as PDF / printed / emailed to vendor
+10. Officer marks invoice as paid
+11. ALL steps logged immutably in activity_logs
 ```
 
 ---
@@ -37,7 +38,7 @@ VendorBridge is a full-stack Procurement & Vendor Management ERP built for the O
 
 Role is JWT-encoded. Every API route enforced with `requireRole([ ])` middleware.
 
-### ⚠️ Auth Policy (Critical Rules)
+### Auth Policy (Critical Rules)
 
 1. **ADMIN role CANNOT be self-registered** — if `role: ADMIN` is sent to `/register`, Zod returns `403 Forbidden`. Admin accounts only via `npx prisma db seed`.
 2. **New registrations default to `isActive = false` (PENDING)** — no tokens issued on register.
@@ -60,39 +61,111 @@ Role is JWT-encoded. Every API route enforced with `requireRole([ ])` middleware
 
 ## What's Already Done ✅
 
-| Feature | Status |
-|---------|--------|
-| Express TypeScript backend with folder structure | ✅ |
-| JWT Auth (access 30min + refresh 7d tokens) | ✅ |
-| Register / Login / Logout / Refresh Token APIs | ✅ |
-| Prisma 7 + Neon PostgreSQL + `@prisma/adapter-pg` | ✅ |
-| Global Error Handler middleware | ✅ |
-| `sendSuccess` / `sendError` response helpers | ✅ |
-| Zod validation middleware | ✅ |
-| Database seeding (admin + demo users) | ✅ |
-| Frontend Next.js App Router setup | ✅ |
-| Login + Register pages (Odoo Purple theme) | ✅ |
-| Dashboard skeleton | ✅ |
-| Universal Sonner toast notification system | ✅ |
-| `.env.example` for backend + frontend | ✅ |
+### Backend Modules
+
+| Module | Files | Status |
+|--------|-------|--------|
+| Auth (JWT, Register, Login, Refresh, Logout) | `routes/`, `controllers/`, `services/`, `validations/` | ✅ |
+| Vendors (CRUD, status, search) | `routes/`, `controllers/`, `services/`, `repositories/`, `validations/` | ✅ |
+| RFQs (create, edit, publish, file upload, send) | `routes/`, `controllers/`, `services/`, `repositories/`, `validations/` | ✅ |
+| Quotations (submit, draft, edit, select winner) | `routes/`, `controllers/`, `services/`, `repositories/`, `validations/` | ✅ |
+| Approvals (L1/L2 list, approve/reject with remarks, PO auto-gen) | `routes/`, `controllers/`, `services/`, `repositories/`, `validations/` | ✅ |
+| Purchase Orders (list with pagination, detail, status update) | `routes/`, `controllers/`, `services/`, `repositories/`, `validations/` | ✅ |
+| Activity Logger (write-only, immutable audit trail) | `lib/activityLogger.ts` | ✅ |
+| Notifications (in-app, created in services) | No dedicated route yet (created inline in services) | ⏳ |
+| Admin (user activate/deactivate) | `routes/`, `controllers/` | ✅ |
+| Dashboard (summary stats) | Not started | ❌ |
+| Invoices (CRUD, PDF, email) | Not started | ❌ |
+| Reports (analytics, CSV export) | Not started | ❌ |
+
+### Frontend Pages
+
+| # | Screen | Route | Role | Status |
+|---|--------|-------|------|--------|
+| 1 | Login | `/login` | All | ✅ |
+| 2 | Register | `/register` | All | ✅ |
+| 3 | Dashboard | `/dashboard` | All | ✅ |
+| 4 | Vendor Management | `/vendors` | Officer/Admin | ✅ |
+| 5 | RFQ List | `/rfqs` | Officer/Admin | ✅ |
+| 6 | RFQ Create | `/rfqs/create` | Officer | ✅ |
+| 7 | RFQ Edit | `/rfqs/[id]/edit` | Officer | ✅ |
+| 8 | RFQ Detail | `/rfqs/[id]` | Officer/Manager/Vendor | ✅ |
+| 9 | Quotation Submit | `/rfqs/[id]/submit` | Vendor | ✅ |
+| 10 | Compare Quotations | `/rfqs/[id]/compare` | Officer/Manager | ✅ |
+| 11 | Approvals Queue | `/approvals` | Manager | ✅ |
+| 12 | Purchase Orders List | `/purchase-orders` | All | ✅ |
+| 13 | Purchase Order Detail | `/purchase-orders/[id]` | All | ✅ |
+| 14 | Invoices List | `/invoices` | All | ✅ |
+| 15 | Invoice Create | `/invoices/create` | Officer/Admin | ✅ |
+| 16 | Invoice Detail | `/invoices/[id]` | All | ✅ |
+| 17 | Admin Users | `/admin/users` | Admin | ✅ |
+| 18 | Activity Logs | `/activity-logs` | All | ❌ |
+| 19 | Reports | `/reports` | Admin/Manager | ❌ |
 
 ---
 
-## 11 Screens to Build
+## Recent Changes (This Session)
 
-| # | Screen | Role | Priority |
-|---|--------|------|----------|
-| 1 | Login | All | P0 ✅ exists |
-| 2 | Register | All | P0 ✅ exists (needs update) |
-| 3 | Dashboard | Officer/Manager/Admin | P0 |
-| 4 | Vendor Management | Officer/Admin | P0 |
-| 5 | RFQ Creation | Officer | P0 |
-| 6 | Quotation Submission | Vendor | P0 |
-| 7 | Quotation Comparison | Officer/Manager | P0 |
-| 8 | Approval Workflow | Manager | P0 |
-| 9 | PO & Invoice | Officer/Admin | P0 |
-| 10 | Activity & Audit Logs | All | P1 |
-| 11 | Reports & Analytics | Admin/Manager | P1 |
+### 1. L1 Remarks Visible to L2 Manager
+- **Problem**: When L2 opened the approvals queue, they saw their PENDING card but had no visibility into what L1 wrote in their remarks.
+- **Solution**: Modified `backend/src/services/approval.service.ts:listApprovals()` to enrich each approval record with a `siblingApproval` field containing the other level's approval data (status, remarks, approver name).
+- **Frontend**: Added amber-highlighted info box in the L2 approval card showing L1's remark and the L1 approver's name. Both levels still require their own remarks before confirming approve/reject.
+- **Files changed**:
+  - `backend/src/services/approval.service.ts` — enriched list query
+  - `frontend/services/approval.ts` — added `siblingApproval` type
+  - `frontend/app/(dashboard)/approvals/page.tsx` — L1 remark display box
+
+### 2. Purchase Orders Module (Backend + Frontend)
+- **Backend** (4 files):
+  - `backend/src/validations/purchaseOrder.validation.ts` — Zod schema for status update (DRAFT/APPROVED/FULFILLED)
+  - `backend/src/repositories/purchaseOrder.repository.ts` — list (pagination, vendor filter), getById (vendor, quotation→rfq→items), updateStatus
+  - `backend/src/services/purchaseOrder.service.ts` — role-based filtering (vendors see only their POs via userId→vendorId resolution), access control, activity logging
+  - `backend/src/controllers/purchaseOrder.controller.ts` — list, detail, updateStatus handlers with error mapping
+  - `backend/src/routes/purchaseOrder.routes.ts` — GET `/`, GET `/:id`, PATCH `/:id/status` with role guards
+  - `backend/src/index.ts` — mounted at `/api/v1/purchase-orders`
+- **Frontend** (3 files):
+  - `frontend/services/purchaseOrder.ts` — all 3 API calls
+  - `frontend/app/(dashboard)/purchase-orders/page.tsx` — list with status filter tabs (ALL/DRAFT/APPROVED/FULFILLED), pagination, role-based columns (vendor name, PO number, grand total, invoice count)
+  - `frontend/app/(dashboard)/purchase-orders/[id]/page.tsx` — detail with vendor card, RFQ reference, line items table, financial summary, invoice history, Approve PO / Generate Invoice action buttons
+
+### 3. Level Indicator in Approvals Page
+- Added a "You are assigned as: L1 / L2" badge at the top of the approvals queue so managers can see their approval level(s) at a glance.
+
+### 4. Admin User Management (Backend + Frontend)
+- **Backend**: `admin.controller.ts` + `admin.routes.ts` — `GET /api/v1/admin/users`, `PATCH /users/:id/activate`, `PATCH /users/:id/approval-level`
+- **Frontend**: `/admin/users` — table of all users, activate/deactivate toggle, dropdown to assign L1/L2 approval level to managers
+
+### 5. Schema Changes
+- `User` model: added `approvalLevel` (Int?) — allows Admin to explicitly assign L1/L2
+- `Invoice` model: added `paidAt` (DateTime?) — tracks when invoice was paid
+
+### 6. Seed Data (Rich Demo)
+- **7 users**: admin, 2 managers (L1/L2), officer, 3 vendors
+- **3 vendor profiles**: TechMart India (IT Hardware), Global Office Supplies (Office Supplies), IndustrieBedarf GmbH (Industrial Equipment)
+- **2 RFQs** published with line items:
+  - "Office Laptops & Peripherals" — 50 laptops, 30 monitors, 100 keyboards — 2 vendors assigned
+  - "Annual Office Stationery Supply" — 500 cartons A4 paper, 20 toner cartridges, 200 stationery kits — 2 vendors assigned
+- **4 quotations** submitted with pricing (all with 18% GST, delivery days)
+
+### 7. Invoice Module (Backend + Frontend)
+- **Schema**: Added `paidAt` field to Invoice model, pushed to DB
+- **Backend** (5 files):
+  - `backend/src/validations/invoice.validation.ts` — Zod schema for create invoice
+  - `backend/src/repositories/invoice.repository.ts` — create, list (paginated), getById (full includes), markAsPaid, getNextInvoiceNumber (INV-YYYY-NNNNNN)
+  - `backend/src/services/invoice.service.ts` — create from PO (CGST 9% + SGST 9% calculation), list, detail, mark paid, activity logging
+  - `backend/src/controllers/invoice.controller.ts` — POST create, GET list, GET detail, PATCH pay
+  - `backend/src/routes/invoice.routes.ts` — mounted at `/api/v1/invoices/*`
+  - `backend/src/index.ts` — registered router
+  - `frontend/services/invoice.ts` — all 4 API calls + TypeScript types
+  - `frontend/app/(dashboard)/invoices/page.tsx` — list with status filter tabs (Pending/Paid/Overdue), pagination, vendor info
+  - `frontend/app/(dashboard)/invoices/create/page.tsx` — create from PO with date pickers, GST preview, validation
+  - `frontend/app/(dashboard)/invoices/[id]/page.tsx` — detail with vendor card, line items, CGST/SGST breakdown, Mark as Paid with remarks, Download PDF
+
+### 8. UX Improvements (Invoice + PO)
+- **`paidRemarks` field**: Added to Invoice schema — officer enters remarks when marking paid (cheque ref, bank transfer, etc.). Displayed in green Paid banner. Also logged to activity log.
+- **Download PDF**: Always-visible button on invoice detail page. Opens standalone print-friendly page at `/invoice-print/[id]` (no sidebar, auto-triggers print dialog → Save as PDF).
+- **PO List columns**: Replaced generic "Invoices" column with dedicated **Payment** (✓ Paid / Pending / —) and **Fulfillment** (✓ Fulfilled / In Progress / Draft) columns for better at-a-glance status tracking.
+- **PO Detail lifecycle**: Invoices are now clickable links → invoice detail. When invoice is PAID, "Mark as Fulfilled" button appears to complete the PO lifecycle.
 
 ---
 
@@ -118,21 +191,22 @@ Role is JWT-encoded. Every API route enforced with `requireRole([ ])` middleware
 
 ---
 
-## API Base URL
-All endpoints: `/api/v1/`
+## API Endpoints
 
-**Modules:**
-- `/api/v1/auth/*` — Register, Login, Logout, Refresh
-- `/api/v1/vendors/*` — Vendor CRUD + status management
-- `/api/v1/rfqs/*` — RFQ lifecycle + send to vendors
-- `/api/v1/quotations/*` — Submit, edit, select quotation
-- `/api/v1/approvals/*` — L1/L2 workflow actions
-- `/api/v1/purchase-orders/*` — PO generation + detail
-- `/api/v1/invoices/*` — Invoice generation, PDF, email, mark-paid
-- `/api/v1/dashboard/*` — Summary stats for dashboard
-- `/api/v1/activity-logs/*` — Read-only audit log
-- `/api/v1/reports/*` — Analytics + CSV export
-- `/api/v1/notifications/*` — User notifications
+| Module | Path | Status |
+|--------|------|--------|
+| Auth | `/api/v1/auth/*` | ✅ |
+| Vendors | `/api/v1/vendors/*` | ✅ |
+| RFQs | `/api/v1/rfqs/*` | ✅ |
+| Quotations | `/api/v1/quotations/*` | ✅ |
+| Approvals | `/api/v1/approvals/*` | ✅ |
+| Purchase Orders | `/api/v1/purchase-orders/*` | ✅ |
+| Invoices | `/api/v1/invoices/*` | ✅ |
+| Admin (users, activate, approval-level) | `/api/v1/admin/*` | ✅ |
+| Dashboard | `/api/v1/dashboard/*` | ❌ |
+| Activity Logs | `/api/v1/activity-logs/*` | ❌ |
+| Reports | `/api/v1/reports/*` | ❌ |
+| Notifications | `/api/v1/notifications/*` | ❌ |
 
 ---
 
@@ -214,6 +288,8 @@ npx prisma studio
 - Clean L1 → L2 sequential chain enforced automatically
 
 **Implementation**: When officer selects vendor in comparison screen → service queries `prisma.user.findMany({ where: { role: 'manager' }, orderBy: { id: 'asc' }, take: 2 })` → creates L1 and L2 approval records simultaneously, but only L1 is `pending` (L2 stays `waiting` until L1 approves).
+
+**Sibling Approval Enrichment**: When the approvals list is fetched, the service enriches each approval with its sibling (other level for the same quotation). This lets L2 see L1's remarks directly in the UI.
 
 ---
 
