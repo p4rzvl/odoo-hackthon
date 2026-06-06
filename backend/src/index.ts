@@ -33,7 +33,7 @@ app.get(
   (req: AuthenticatedRequest, res) => {
     res.json({
       success: true,
-      message: `Hello ${req.user?.name}, authorized session validated!`,
+      message: `Hello ${req.user?.firstName}, authorized session validated!`,
       metrics: {
         activeUsers: 142,
         totalOrders: 320,
@@ -44,7 +44,7 @@ app.get(
   },
 );
 
-import { globalErrorHandler } from './middleware/errorHandler';
+import { globalErrorHandler } from "./middleware/errorHandler";
 
 // Start the server
 app.use(globalErrorHandler);

@@ -20,7 +20,7 @@ export const registerSchema = z.object({
     .min(1, 'Last name cannot be empty')
     .trim(),
   role: z
-    .nativeEnum(Role, { errorMap: () => ({ message: 'Invalid user role' }) })
+    .nativeEnum(Role, { message: 'Invalid user role' })
     .default(Role.OFFICER),
   phone: z
     .string()
